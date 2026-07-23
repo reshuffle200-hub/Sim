@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit 1 — Westinghouse 3-Loop PWR — Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1117; --surface:#151b23; --surface2:#1c242e; --line:#242d38;
+  --ink:#e6edf3; --dim:#8b98a5; --dim2:#5e6b7a;
+  --accent:#4a9eff; --good:#3fb950; --warn:#d29922; --bad:#f85149;
+  --violet:#a371f7; --teal:#39c5cf;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --sans:'Inter',system-ui,sans-serif;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
+  padding:16px;min-height:100vh;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.card h2{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--dim);margin:0;padding:13px 16px 0}
+
+/* header */
+header{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:stretch}
+.title{padding:16px 20px}
+.title h1{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
+.title p{margin:5px 0 0;color:var(--dim);font-size:12.5px}
+#buildTag{color:var(--dim2);font-family:var(--mono);font-size:11px}
+.kpis{display:flex;gap:1px;background:var(--line);border-radius:var(--r);overflow:hidden}
+.kpi{background:var(--surface);padding:14px 20px;min-width:120px;text-align:right}
+.kpi .l{font-size:10.5px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.kpi .v{font-family:var(--mono);font-size:25px;font-weight:600;line-height:1.15;margin-top:3px;
+  font-variant-numeric:tabular-nums}
+.kpi .u{font-size:10.5px;color:var(--dim2);font-family:var(--mono)}
+
+/* trip banner */
+#banner{display:none;padding:12px 18px;border-radius:var(--r);
+  background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);
+  color:var(--bad);font-weight:600;font-size:14px;letter-spacing:.01em}
+#banner.on{display:block}
+#banner span{color:var(--ink);font-weight:400;margin-left:10px}
+
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:1280px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.rows{padding:6px 16px 14px}
+.row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);gap:12px}
+.row:last-child{border-bottom:0}
+.row .k{color:var(--dim);font-size:12.5px}
+.row .v{font-family:var(--mono);font-size:13.5px;font-variant-numeric:tabular-nums;text-align:right}
+.v.good{color:var(--good)} .v.warn{color:var(--warn)} .v.bad{color:var(--bad)}
+.v.dimv{color:var(--dim2)}
+
+/* bar */
+.bar{height:5px;background:#0b1017;border-radius:3px;overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .18s}
+.bar i.good{background:var(--good)} .bar i.warn{background:var(--warn)} .bar i.bad{background:var(--bad)}
+
+/* loops / SGs as mini columns */
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 16px 14px}
+.m{background:var(--surface2);border-radius:7px;padding:9px 10px}
+.m .t{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.m .a{font-family:var(--mono);font-size:16px;margin-top:3px;font-variant-numeric:tabular-nums}
+.m .b{font-family:var(--mono);font-size:11px;color:var(--dim2);margin-top:1px}
+
+/* annunciator */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px;padding:8px 16px 14px}
+.tile{background:#10161d;border:1px solid var(--line);border-radius:6px;padding:8px 9px;
+  font-size:10.5px;font-weight:600;letter-spacing:.03em;color:#3d4855;min-height:38px;
+  display:flex;align-items:center;line-height:1.25;transition:all .12s}
+.tile.on{background:rgba(210,153,34,.16);border-color:rgba(210,153,34,.5);color:var(--warn)}
+.tile.on.bad{background:rgba(248,81,73,.16);border-color:rgba(248,81,73,.5);color:var(--bad)}
+.tile.on.ok{background:rgba(63,185,80,.14);border-color:rgba(63,185,80,.45);color:var(--good)}
+.tile.new{animation:bl .6s steps(1,end) infinite}
+.tile.first{outline:2px solid var(--bad);outline-offset:1px}
+@keyframes bl{50%{opacity:.25}}
+@media(prefers-reduced-motion:reduce){.tile.new{animation:none}}
+
+/* trends */
+#trends{width:100%;height:250px;display:block;padding:0}
+
+/* controls */
+.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.cg{padding:6px 16px 14px}
+.field{margin-top:11px}
+.field label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);margin-bottom:6px}
+.field label b{font-family:var(--mono);color:var(--ink);font-weight:500}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent;cursor:pointer;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:5px;background:#0b1017;border-radius:3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;margin-top:-5px;
+  background:var(--accent);border-radius:50%;border:2px solid var(--surface)}
+input[type=range]::-moz-range-track{height:5px;background:#0b1017;border-radius:3px}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;background:var(--accent);border-radius:50%;border:2px solid var(--surface)}
+input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}
+button{background:var(--surface2);border:1px solid var(--line);color:var(--ink);cursor:pointer;
+  padding:9px 8px;border-radius:7px;font-family:var(--sans);font-size:12px;font-weight:500;
+  transition:all .12s}
+button:hover{background:#242e3a;border-color:#31404f}
+button:active{transform:translateY(1px)}
+button.wide{grid-column:1/-1}
+button.bad{color:var(--bad);border-color:rgba(248,81,73,.3)}
+button.bad:hover{background:rgba(248,81,73,.12)}
+button.good{color:var(--good);border-color:rgba(63,185,80,.3)}
+button.good:hover{background:rgba(63,185,80,.12)}
+button[aria-pressed=true]{background:var(--accent);color:#04121f;border-color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:grid;grid-auto-flow:column;gap:6px;margin-top:11px}
+.note{color:var(--dim2);font-size:11.5px;line-height:1.6;padding:0 16px 14px}
+.note b{color:var(--dim)}
+
+.nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);padding:4px}
+.nav button{flex:1;background:transparent;border:0;color:var(--dim);padding:10px 8px;
+  border-radius:7px;font-size:12.5px;font-weight:500}
+.nav button:hover{background:var(--surface2);color:var(--ink)}
+.nav button[aria-pressed=true]{background:var(--accent);color:#04121f;font-weight:600}
+.grid1{display:grid;grid-template-columns:1fr;gap:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:1280px){.grid3,.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+.cv{width:100%;display:block;padding:4px 0}
+.card h2 span{color:var(--dim2);font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px}
+.bar{position:relative}
+.bar u{position:absolute;top:-2px;bottom:-2px;width:1px;background:rgba(255,255,255,.35);z-index:2}
+.m .a.bad{color:var(--bad)} .m .a.warn{color:var(--warn)}
+.sm{font-size:11px;color:var(--dim2)}
+#boardArea{display:flex;flex-direction:column;gap:12px}
+.iclist{margin-top:10px;display:flex;flex-direction:column;gap:5px;max-height:170px;overflow-y:auto}
+.ic{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:6px;padding:7px 9px}
+.ic .n{flex:1;min-width:0}
+.ic .n b{display:block;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic .n i{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--dim2)}
+.ic button{padding:5px 9px;font-size:11px;border-radius:5px}
+.icnote{font-size:11px;color:var(--dim2);margin-top:8px;line-height:1.5}
+footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;font-family:var(--mono)}
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;
+  color:var(--dim);font-size:14px;z-index:50}
+</style>
+</head>
+<body>
+<div id="loading">Initialising plant model…</div>
+<div class="wrap" id="app" style="visibility:hidden">
+
+<header>
+  <div class="card title">
+    <h1>Unit 1 &middot; Westinghouse 3-Loop PWR</h1>
+    <p>2775 MWt &middot; 916 MWe gross &middot; 157 assemblies &middot; mid-cycle <span id="buildTag"></span></p>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">Reactor</div><div class="v" id="kPow">—</div><div class="u">% RATED</div></div>
+    <div class="kpi"><div class="l">Tavg</div><div class="v" id="kTavg">—</div><div class="u" id="kTref">°F</div></div>
+    <div class="kpi"><div class="l">RCS press</div><div class="v" id="kP">—</div><div class="u">PSIG</div></div>
+    <div class="kpi"><div class="l">Generator</div><div class="v" id="kMW">—</div><div class="u">MWe NET</div></div>
+  </div>
+</header>
+
+<div id="banner"></div>
+
+<div class="nav" id="nav">
+  <button data-b="overview" aria-pressed="true">Overview</button>
+  <button data-b="reactor" aria-pressed="false">Reactor</button>
+  <button data-b="rcs" aria-pressed="false">Reactor coolant</button>
+  <button data-b="secondary" aria-pressed="false">Steam &amp; feedwater</button>
+  <button data-b="electrical" aria-pressed="false">Electrical</button>
+</div>
+
+<div id="boardArea"></div>
+
+<div class="card">
+  <h2>Annunciator<span id="alarmSummary"></span></h2>
+  <div class="tiles" id="tiles"></div>
+</div>
+
+<div class="card" id="trendCard">
+  <h2>Trends — 10 minutes</h2>
+  <canvas id="trends" class="cv" style="height:250px"></canvas>
+</div>
+
+<div class="ctrls">
+  <div class="card cg"><h2 style="padding-left:0">Load</h2>
+    <div class="field"><label>Turbine load setpoint <b id="oLoad">100%</b></label>
+      <input type="range" id="sLoad" min="0" max="100" step="1" value="100"></div>
+    <div class="field"><label>Ramp rate <b id="oRamp">5 %/min</b></label>
+      <input type="range" id="sRamp" min="1" max="20" step="1" value="5"></div>
+  </div>
+  <div class="card cg"><h2 style="padding-left:0">Reactivity</h2>
+    <div class="seg"><button id="bRodAuto" aria-pressed="true">Rods auto</button>
+      <button id="bRodMan" aria-pressed="false">Manual</button></div>
+    <div class="btns"><button id="bRodOut">Withdraw ▲</button><button id="bRodIn">Insert ▼</button>
+      <button id="bDilute">Dilute −5 ppm</button><button id="bBorate">Borate +5 ppm</button></div>
+  </div>
+  <div class="card cg"><h2 style="padding-left:0">Events</h2>
+    <div class="btns">
+      <button class="bad" id="bScram">Reactor trip</button>
+      <button class="bad" id="bTurb">Turbine trip</button>
+      <button class="bad" id="bLOOP">Loss of offsite</button>
+      <button class="bad" id="bLOFW">Loss of feedwater</button>
+      <button class="bad" id="bRCP">Trip one RCP</button>
+      <button class="bad" id="bPORV">PORV sticks open</button></div>
+  </div>
+  <div class="card cg"><h2 style="padding-left:0">Initial conditions</h2>
+    <div class="btns">
+      <button class="good wide" id="bSnap">Snapshot now</button>
+      <button id="bExport">Export file</button>
+      <button id="bImport">Import file</button>
+    </div>
+    <input type="file" id="fImport" accept=".json,application/json" style="display:none">
+    <div id="icList" class="iclist"></div>
+    <div class="seg" style="grid-auto-flow:row;gap:5px">
+      <button id="bStd100">Standard: 100% power</button>
+      <button id="bStd70">Standard: 70% power</button>
+      <button id="bStd40">Standard: 40% power</button>
+    </div>
+  </div>
+  <div class="card cg"><h2 style="padding-left:0">Simulation</h2>
+    <div class="seg"><button id="bS1" aria-pressed="true">1×</button>
+      <button id="bS10" aria-pressed="false">10×</button>
+      <button id="bS60" aria-pressed="false">60×</button>
+      <button id="bSA" aria-pressed="false">Auto</button></div>
+    <div class="btns"><button id="bPause">Pause</button><button id="bAck">Acknowledge</button>
+      <button class="good wide" id="bReset">Reset to 100% power</button></div>
+    <div style="margin-top:10px;font-size:11.5px;color:var(--dim2);font-family:var(--mono)" id="oSpeed"></div>
+  </div>
+</div>
+
+<div class="card"><div class="note" id="modelnote"></div></div>
+<footer>Physics modules validated independently &middot; no build step &middot; runs from any static host</footer>
+</div>
+
+<script type="module">
+import { BUILD } from './lib/version.js';
+import * as PLANT from './lib/plant.js';
+import * as EL from './lib/elec.js';
+import * as B from './ui/boards.js';
+import * as IC from './lib/ic.js';
+import * as AL from './ui/alarms.js';
+import { F, clamp, el, fitCanvas, stripChart } from './ui/widgets.js';
+
+let PL = PLANT.makePlant({ life: 'MOL' });
+PLANT.initPlant(PL, 1.0, 900);
+PL.rodAuto = true;
+
+let board = 'overview', paused = false, speed = 1, autoSpeed = false, simT = 0;
+const A = AL.makeAlarmState();
+
+// ---- initial conditions -------------------------------------------
+let LIB = IC.loadPersisted() || IC.makeLibrary();
+function icName(){
+  const s = PL.S;
+  return `${(PL.k.Ptot*100).toFixed(0)}% ${s.Tavg.toFixed(0)}F`
+       + (PL.trip ? ' TRIPPED' : '') + ' @' + new Date().toLocaleTimeString();
+}
+function renderICs(){
+  const box = el('icList');
+  if (!LIB.order.length){
+    box.innerHTML = '<div class="icnote">No saved conditions. Snapshot the plant at any point '
+      + 'and return to it instantly — restoring is exact, not approximate.</div>';
+    return;
+  }
+  box.innerHTML = LIB.order.map(n => {
+    const ic = LIB.slots[n];
+    return `<div class="ic"><span class="n"><b>${n}</b><i>${IC.describe(ic)}</i></span>`
+         + `<button data-go="${n}">Go</button><button class="bad" data-del="${n}">×</button></div>`;
+  }).join('');
+}
+function restoreIC(ic){
+  IC.restore(PL, ic);
+  simT = 0; TR.i = 0; TR.full = false;
+  A.first = -1; A.st.forEach(s => { s.on = false; s.ack = false; });
+  el('sLoad').value = Math.round(PL.sec.loadSet*100);
+  el('oLoad').textContent = Math.round(PL.sec.loadSet*100) + '%';
+  el('sRamp').value = Math.round(PL.sc.rampPctPerMin);
+  el('oRamp').textContent = Math.round(PL.sc.rampPctPerMin) + ' %/min';
+  lastHTML = 0;
+}
+const STD = {};
+function standardIC(load, label){
+  if (!STD[label]) {
+    const tmp = PLANT.makePlant({ life: 'MOL' });
+    PLANT.initPlant(tmp, load, 900);
+    tmp.rodAuto = true;
+    STD[label] = IC.snapshot(tmp, { std: true });
+  }
+  restoreIC(STD[label]);
+}
+
+// ---- trends -------------------------------------------------------
+const TR = { n: 1400, i: 0, full: false, keys: ['pow','tavg','tref','p','lvl','sg','mwe'] };
+for (const k of TR.keys) TR[k] = new Float32Array(TR.n);
+TR.t = new Float32Array(TR.n);
+function pushTrend() {
+  const i = TR.i, S = PL.S;
+  TR.t[i]=simT; TR.pow[i]=PL.k.Ptot*100; TR.tavg[i]=S.Tavg; TR.tref[i]=PL.Tref;
+  TR.p[i]=S.P-14.7; TR.lvl[i]=S.pzrLevel*100; TR.sg[i]=PL.sgs[0].lvlNR; TR.mwe[i]=PL.E.netMWe;
+  TR.i=(i+1)%TR.n; if(TR.i===0) TR.full=true;
+}
+const series = k => {
+  const out=[], n = TR.full?TR.n:TR.i;
+  for(let j=0;j<n;j++){ const idx=TR.full?(TR.i+j)%TR.n:j; out.push([TR.t[idx],TR[k][idx]]); }
+  return out;
+};
+
+// ---- render -------------------------------------------------------
+const BOARDS = { overview:B.overview, reactor:B.reactor, rcs:B.rcs,
+                 secondary:B.secondary, electrical:B.electrical };
+const DRAW = { reactor:B.drawReactorCanvases, rcs:B.drawRCSCanvases,
+               secondary:B.drawSecondaryCanvases, electrical:B.drawElecCanvases };
+let lastHTML = 0;
+function render(now) {
+  const S = PL.S, E = PL.E;
+  el('kPow').textContent = F(PL.k.Ptot*100, 1);
+  el('kPow').className = 'v ' + (PL.k.Ptot*100 > 102 ? 'bad' : '');
+  el('kTavg').textContent = F(S.Tavg, 1);
+  el('kTref').textContent = '°F · REF ' + F(PL.Tref, 1);
+  el('kTavg').className = 'v ' + (Math.abs(S.Tavg-PL.Tref) > 4 ? 'warn' : '');
+  el('kP').textContent = F(S.P-14.7, 0);
+  el('kP').className = 'v ' + ((S.P-14.7<2000||S.P-14.7>2350) ? 'bad':'');
+  el('kMW').textContent = F(E.netMWe, 0);
+
+  const b = el('banner');
+  if (PL.trip) { b.className='on';
+    b.innerHTML = `REACTOR TRIP — ${PL.tripFirst}<span>decay heat ${F(PL.k.Pdecay*100,2)}% · subcooling ${F(S.subcooling,0)} °F · ${AL.activeCount(A)} alarms</span>`; }
+  else b.className='';
+
+  AL.updateAlarms(A, PL);
+  if (autoSpeed && A.anyNew && speed > 1) setSpeed(1);
+
+  if (now - lastHTML > 160) {
+    lastHTML = now;
+    el('boardArea').innerHTML = BOARDS[board](PL);
+    el('tiles').innerHTML = AL.tilesHTML(A, null);
+    const fo = AL.firstOutName(A);
+    el('alarmSummary').textContent = AL.activeCount(A) + ' active'
+      + (fo ? ' · first-out: ' + fo : '');
+  }
+  if (DRAW[board]) DRAW[board](PL);
+  el('trendCard').style.display = board === 'overview' ? '' : 'none';
+  if (board === 'overview') {
+    const cv = el('trends'); const { x, w, h } = fitCanvas(cv);
+    stripChart(x, w, h, series, [
+      { yr:[0,110], ser:[['pow','#4a9eff','power %'],['sg','#a371f7','SG level'],['lvl','#39c5cf','PZR level']] },
+      { yr:[500,610], ser:[['tavg','#3fb950','Tavg'],['tref','#8b98a5','Tref']] },
+      { yr:[0,2500], ser:[['p','#d29922','PZR psig'],['mwe','#f85149','net MWe']] }
+    ], Math.max(0, simT-600), simT);
+  }
+  el('oSpeed').textContent = `${autoSpeed?'auto':speed+'×'} · t = ${F(simT,0)} s${paused?' · PAUSED':''}`;
+}
+
+// ---- controls -----------------------------------------------------
+el('nav').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  board = t.dataset.b;
+  [...el('nav').children].forEach(c => c.setAttribute('aria-pressed', String(c === t)));
+  lastHTML = 0;
+});
+function setSpeed(v){ speed=v; autoSpeed=false;
+  [['bS1',1],['bS10',10],['bS60',60]].forEach(([i,x])=>el(i).setAttribute('aria-pressed',String(x===v)));
+  el('bSA').setAttribute('aria-pressed','false'); }
+el('bS1').onclick=()=>setSpeed(1); el('bS10').onclick=()=>setSpeed(10); el('bS60').onclick=()=>setSpeed(60);
+el('bSA').onclick=()=>{ autoSpeed=true; speed=60;
+  ['bS1','bS10','bS60'].forEach(i=>el(i).setAttribute('aria-pressed','false'));
+  el('bSA').setAttribute('aria-pressed','true'); };
+el('sLoad').oninput=e=>{ PL.sec.loadSet=+e.target.value/100; el('oLoad').textContent=e.target.value+'%'; };
+el('sRamp').oninput=e=>{ PL.sc.rampPctPerMin=+e.target.value; el('oRamp').textContent=e.target.value+' %/min'; };
+el('bRodAuto').onclick=()=>{PL.rodAuto=true;el('bRodAuto').setAttribute('aria-pressed','true');el('bRodMan').setAttribute('aria-pressed','false');};
+el('bRodMan').onclick=()=>{PL.rodAuto=false;el('bRodAuto').setAttribute('aria-pressed','false');el('bRodMan').setAttribute('aria-pressed','true');};
+function hold(id,fn){ let t=null;
+  const go=e=>{if(e.cancelable)e.preventDefault();fn();clearInterval(t);t=setInterval(fn,90);};
+  const stop=()=>{clearInterval(t);t=null;};
+  const e2=el(id); e2.addEventListener('mousedown',go); e2.addEventListener('touchstart',go,{passive:false});
+  ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev=>e2.addEventListener(ev,stop)); }
+hold('bRodOut',()=>{PL.banks.ctrlDemand=clamp(PL.banks.ctrlDemand+2,0,528);});
+hold('bRodIn', ()=>{PL.banks.ctrlDemand=clamp(PL.banks.ctrlDemand-2,0,528);});
+el('bDilute').onclick=()=>{PL.ppm=Math.max(0,PL.ppm-5);};
+el('bBorate').onclick=()=>{PL.ppm+=5;};
+el('bScram').onclick=()=>{ PL.trip=true; PL.tripMsg='MANUAL TRIP';
+  if(!PL.tripFirst) PL.tripFirst='MANUAL TRIP';
+  PL.sec.tripped=true; EL.tripGenerator(PL.E,'UNIT TRIP');
+  PL.banks.ctrlDemand=0; PL.banks.sd=[0,0]; };
+el('bTurb').onclick=()=>{ PL.sec.tripped=true; };
+el('bLOOP').onclick=()=>{ EL.loseOffsite(PL.E); EL.tripGenerator(PL.E,'LOOP'); };
+el('bLOFW').onclick=()=>{ PL.sec.mfpOn=[false,false]; };
+el('bRCP').onclick=()=>{ PL.E.rcpOn[1]=false; PL.S.pumpOn[1]=false; };
+el('bPORV').onclick=()=>{ PL.z.porvStuck[0]=true; };
+el('bPause').onclick=()=>{ paused=!paused; el('bPause').textContent=paused?'Run':'Pause'; };
+el('bAck').onclick=()=>AL.ackAll(A);
+el('bSnap').onclick=()=>{ IC.save(LIB, icName(), PL, {}); renderICs(); };
+el('icList').addEventListener('click', e => {
+  const g = e.target.closest('[data-go]'), d = e.target.closest('[data-del]');
+  if (g) restoreIC(LIB.slots[g.dataset.go]);
+  if (d) { IC.remove(LIB, d.dataset.del); renderICs(); }
+});
+el('bExport').onclick=()=>{
+  const blob = new Blob([IC.toJSON(IC.snapshot(PL, { name: icName() }))],
+    { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pwr-ic-' + Date.now() + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+};
+el('bImport').onclick=()=>el('fImport').click();
+el('fImport').addEventListener('change', ev => {
+  const f = ev.target.files && ev.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const ic = IC.fromJSON(r.result);
+      const n = (ic.meta && ic.meta.name) || f.name.replace(/\.json$/, '');
+      LIB.slots[n] = ic; if (!LIB.order.includes(n)) LIB.order.push(n);
+      IC.persist(LIB); renderICs(); restoreIC(ic);
+    } catch (e) { alert('Could not read that file: ' + e.message); }
+  };
+  r.readAsText(f);
+});
+el('bStd100').onclick=()=>standardIC(1.0,'100');
+el('bStd70').onclick=()=>standardIC(0.7,'70');
+el('bStd40').onclick=()=>standardIC(0.4,'40');
+el('bReset').onclick=()=>{
+  PL=PLANT.makePlant({life:'MOL'}); PLANT.initPlant(PL,1.0,900); PL.rodAuto=true;
+  simT=0; TR.i=0; TR.full=false; A.first=-1; A.st.forEach(s=>{s.on=false;s.ack=false;});
+  el('sLoad').value=100; el('oLoad').textContent='100%';
+  paused=false; el('bPause').textContent='Pause'; lastHTML=0; };
+
+el('modelnote').innerHTML =
+ '<b>Model.</b> Six-group point kinetics with ANS-5.1 decay heat; reactivity from Doppler, '+
+ 'moderator density coupled to boron, rod banks with 128-step overlap, and xenon/samarium — '+
+ 'calibrated against the NRC Westinghouse Technology Systems Manual §2.1. Seventeen-volume RCS, '+
+ 'three independent loops, loop seals, and one global pressure solve covering water-solid, bubble '+
+ 'and voided states. Steam generators carry riser void as a state, so shrink and swell are real '+
+ 'non-minimum-phase responses. W-3 DNBR and the actual OTΔT / OPΔT trip functions. The reactor '+
+ 'coolant pumps are electrical loads, so losing the grid drops the primary onto natural circulation. '+
+ '<b>Limits:</b> lumped-parameter, no axial nodes, no RHR, boration path or safety injection yet. '+
+ 'Initialisation converges from about 35% to 105% load; lower power needs the RHR and '+
+ 'boration systems that are not built yet. Not a substitute for a licensed simulator.';
+
+// ---- loop ---------------------------------------------------------
+let last=performance.now(), acc=0, tAcc=0;
+function frame(now){
+  const dtReal=clamp((now-last)/1000,0,0.25); last=now;
+  if(!paused){
+    acc+=dtReal*speed;
+    const dt=0.05; let n=0;
+    while(acc>=dt && n<Math.max(40,speed*25)){ PLANT.stepPlant(PL,dt); simT+=dt; acc-=dt; n++; }
+    if(acc>1) acc=0;
+    tAcc+=dtReal; if(tAcc>0.25){ pushTrend(); tAcc=0; }
+  }
+  render(now);
+  requestAnimationFrame(frame);
+}
+el('buildTag').textContent = '\u00b7 build ' + BUILD;
+renderICs();
+el('loading').style.display='none';
+el('app').style.visibility='visible';
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
