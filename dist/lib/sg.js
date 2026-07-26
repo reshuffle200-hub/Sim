@@ -24,7 +24,7 @@
 //  in a fixed volume, pressure from the volume constraint.
 // ======================================================================
 
-import * as PR from './props.js?v=0.27.1';
+import * as PR from './props.js?v=0.28.1';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 

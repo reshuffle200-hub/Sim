@@ -10,7 +10,7 @@
 //  Bump BUILD on every change that ships. The panel displays it, so you can
 //  confirm at a glance that the deployed copy is the one you uploaded.
 // ======================================================================
-export const BUILD = '0.27.1';
+export const BUILD = '0.28.1';
 export const BUILT = '2026-07-25';
 
 /** Per-module versions, bumped when that module changes. */
@@ -31,7 +31,7 @@ export const MODULES = {
   'ccw.js':        '1.1.0',
   'cond.js':       '1.0.1',
   'rad.js':        '1.0.0',
-  'rods.js':       '1.0.0',
+  'rods.js':       '1.1.0',
   'si.js':         '1.0.0',
   'cnmt.js':       '1.0.1',
   'rps.js':        '1.0.0',

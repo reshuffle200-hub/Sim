@@ -33,8 +33,8 @@
 //  not a substitute for RELAP.
 // ======================================================================
 
-import * as ST from './steam.js?v=0.27.1';
-import * as PR from './props.js?v=0.27.1';
+import * as ST from './steam.js?v=0.28.1';
+import * as PR from './props.js?v=0.28.1';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 

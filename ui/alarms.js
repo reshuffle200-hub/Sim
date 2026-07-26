@@ -19,7 +19,7 @@
 // ======================================================================
 
 import { RPS_PARAMS } from '../lib/rps.js';
-import { GROUPS as ROD_GROUPS } from '../lib/rods.js';
+import { GROUPS as ROD_GROUPS, insertionLimit as ROD_LIMIT } from '../lib/rods.js';
 
 const LOOP = ['A', 'B', 'C'];
 const AB = ['A', 'B'];
@@ -287,8 +287,25 @@ export const ALARMS = [
   ['RODS NOT AT BOTTOM',  'rx', p => p.ro && p.ro.alarms.notAtBottom, 'bad', 'ROD CONTROL'],
   ['URGENT ROD FAILURE',  'rx', p => p.ro && p.ro.alarms.urgentFailure, 'bad', 'ROD CONTROL'],
   ['DRPI DEGRADED',       'rx', p => p.ro && p.ro.alarms.drpiDegraded, '', 'ROD CONTROL'],
+  //  DADS-specific.  Half accuracy is deliberately its own window: it is a
+  //  CHOICE as often as a failure -- the maintenance laptop forces a rod to
+  //  single channel to keep an indication you can trust -- and an operator
+  //  reading a deviation needs to know the rod is on twelve-step resolution.
+  ['DRPI HALF ACCURACY',  'rx', p => p.ro && p.ro.alarms.halfAccuracy, '', 'ROD CONTROL'],
+  ['DRPI CABINET FAULT',  'rx', p => p.ro && p.ro.alarms.cabinetFault, 'bad', 'ROD CONTROL'],
+  ['DADS TRAIN FAULT',    'rx', p => p.ro && p.ro.alarms.trainFault, '', 'ROD CONTROL'],
+  ['DADS DISPLAY LOST',   'rx', p => p.ro && p.ro.alarms.displayLost, 'bad', 'ROD CONTROL'],
+  ['ROD DROP TEST FAIL',  'rx', p => p.ro && p.ro.alarms.dropTestFail, 'bad', 'ROD CONTROL'],
   ['DRPI LOST',           'rx', p => p.ro && p.ro.alarms.drpiLost, 'bad', 'ROD CONTROL'],
   ['ROD CONTROL MANUAL',  'rx', p => p.rodAuto === false, '', 'ROD CONTROL'],
+  //  Rod insertion limits: the banks are too far in for the power, so the
+  //  shutdown margin the remaining banks must provide on a trip is no longer
+  //  assured.  Low is the warning, low-low is the Tech Spec action.
+  ['ROD INSERTION LIMIT', 'rx',
+    p => { const r = ROD_LIMIT(p.rop, p.k.Ptot, p.banks.ctrlDemand); return r.lo && !r.loLo; },
+    '', 'ROD CONTROL'],
+  ['ROD INSERTION LO-LO', 'rx',
+    p => ROD_LIMIT(p.rop, p.k.Ptot, p.banks.ctrlDemand).loLo, 'bad', 'ROD CONTROL'],
   ['ROD MOTION INHIBIT',  'rx', p => p.ro && (p.ro.alarms.urgentFailure
       || p.ro.alarms.drpiLost), 'bad', 'ROD CONTROL'],
   ...per(ROD_GROUPS, g => [
@@ -508,6 +525,8 @@ const SEQ = {
   'SAFETY BUS A UNDERVOLT':'M', 'SAFETY BUS B UNDERVOLT':'M',
   'DG 1 FAILED':'M', 'DG 2 FAILED':'M',
   'OT dT MARGIN LOW':'R', 'OP dT MARGIN LOW':'R', 'DNBR AT LIMIT':'R',
+  'DRPI CABINET FAULT':'M', 'DADS DISPLAY LOST':'M', 'ROD DROP TEST FAIL':'M',
+  'ROD INSERTION LO-LO':'M', 'ROD INSERTION LIMIT':'R',
   'ROD AT BOTTOM':'M', 'ROD STUCK':'M', 'URGENT ROD FAILURE':'M',
   'RODS NOT AT BOTTOM':'M', 'DRPI LOST':'M', 'BANK MISALIGNED':'M',
   'ROD DEVIATION':'R', 'DRPI DEGRADED':'R',

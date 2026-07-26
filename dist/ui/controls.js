@@ -25,31 +25,47 @@
 //  auxiliary feedwater switch, which has no STOP because the level logic
 //  re-asserts the start signal on the next step and a STOP would be a lie.
 // ======================================================================
+import * as CWM from '../lib/ccw.js?v=0.28.1';
+import * as RDM from '../lib/rad.js?v=0.28.1';
+import * as ROM from '../lib/rods.js?v=0.28.1';
+import * as ELM from '../lib/elec.js?v=0.28.1';
+import * as RHM from '../lib/rhr.js?v=0.28.1';
+import * as SIM from '../lib/si.js?v=0.28.1';
+import * as RPSM from '../lib/rps.js?v=0.28.1';
+
+/**
+ * The control functions the switches call through `actuate`'s api parameter.
+ *
+ * This lived as an object literal in index.html, which meant it was the ONLY
+ * place that knew the full set -- so nothing else could construct a working
+ * one, and an audit that assembled its own quietly missed `setChannel` and
+ * reported eight channel-bypass switches as broken when they were fine. One
+ * definition, exported, used by the shell and by the tests alike.
+ */
+export function switchApi() {
+  return {
+    closeGenBreaker: ELM.closeGenBreaker,
+    loseOffsite: ELM.loseOffsite,
+    restoreOffsite: ELM.restoreOffsite,
+    setChannel: RPSM.setChannel,
+    blockSI: SIM.blockSI,
+    placeInService: RHM.placeInService
+  };
+}
 
 const bool = (get, set) => ({ get, set });
 
-// Wired in by index.html, like the other switch APIs, so this table stays a
-// description of the BOARD and does not become a second place that knows how
-// the plant is plumbed.
-export const CCWAPI = { loseCCW: () => {}, restoreCCW: () => {} };
-export function wireCCW(api) { Object.assign(CCWAPI, api); }
-export const RADAPI = { setTubeLeak: () => {}, resetBlowdown: () => {},
-                        resetCrIsolation: () => {}, setLetdownHxLeak: () => {} };
-export function wireRad(api) { Object.assign(RADAPI, api); }
-export const SIAPI = { setAccIsolation: () => {} };
-export function wireSI(api) { Object.assign(SIAPI, api); }
+// Plain state is written DIRECTLY.  There used to be four wired singletons here
+// -- CCWAPI, RADAPI, SIAPI, RODAPI -- that index.html populated at startup and
+// every switch called through.  The failure mode is silent: unwired, they are
+// no-op stubs, so nine switches did nothing at all in any host that had not
+// called the matching wire function, and did it without erroring. Importing the
+// modules removes the whole category.
+//
+// The `api` parameter that actuate() takes is a different thing and stays: it
+// is passed per call, and a missing one THROWS rather than quietly doing
+// nothing, which is the property the singletons lacked.
 
-/**
- * Switch specifications.
- *   board     which board it appears on
- *   section   engraved section label it sits under
- *   label     engraved legend plate
- *   pos       position legends, in handle order
- *   read(PL)  current handle position index (the DEMAND)
- *   write     (PL, i) => void
- *   lamp(PL)  'red' | 'green' | 'off' -- what the equipment IS doing
- *   note(PL)  optional short status line
- */
 export const SWITCHES = [
   // =================================================== REACTOR COOLANT PUMPS
   ...[0, 1, 2].map(i => ({
@@ -239,7 +255,7 @@ export const SWITCHES = [
       ? `±${PL.rop.coilSpacing} steps` : `±${PL.rop.coilSpacing / 2} steps`
   })),
   {
-    board: 'reactor', section: 'ROD POSITION INDICATION', label: 'ROD DROP TEST',
+    board: 'reactor', section: 'ROD POSITION INDICATION', label: 'ROD DROP TEST', momentary: true,
     pos: ['NORMAL', 'DROP CD-3'],
     read: PL => PL.ro.rods.some(r => r.dropped) ? 1 : 0,
     write: (PL, v) => {
@@ -259,6 +275,40 @@ export const SWITCHES = [
     },
     lamp: PL => PL.ro.anyStuck ? 'red' : 'green',
     note: PL => PL.ro.anyStuck ? 'not following demand' : ''
+  },
+  ...['A', 'B'].map(t => ({
+    board: 'reactor', section: 'DADS DISPLAY', label: `DISPLAY TRAIN ${t}`,
+    pos: ['OUT', 'IN SVC'],
+    read: PL => PL.ro['train' + t] ? 1 : 0,
+    write: (PL, v) => { PL.ro['train' + t] = v === 1; },
+    lamp: PL => PL.ro['train' + t] ? 'red' : 'green',
+    note: PL => PL.ro.alarms.displayLost ? 'NO INDICATION' : ''
+  })),
+  ...[0, 1, 2, 3].map(n => ({
+    board: 'reactor', section: 'DADS DISPLAY', label: `DATA CABINET ${n + 1}`,
+    pos: ['FAULT', 'NORMAL'],
+    read: PL => PL.ro.cabinetOK[n] ? 1 : 0,
+    write: (PL, v) => { PL.ro.cabinetOK[n] = v === 1; },
+    lamp: PL => PL.ro.cabinetOK[n] ? 'red' : 'green',
+    note: PL => PL.ro.cabinetOK[n] ? '12 rods' : '12 rods dark'
+  })),
+  {
+    board: 'reactor', section: 'DADS DISPLAY', label: 'HALF ACCURACY',
+    pos: ['NORMAL', 'FORCE CD-1'],
+    read: PL => PL.ro.rods.some(r => r.halfAccuracy) ? 1 : 0,
+    write: (PL, v) => ROM.setHalfAccuracy(PL.ro, 'CD-1', v === 1),
+    lamp: PL => PL.ro.forcedHalf ? 'red' : 'green',
+    note: PL => PL.ro.forcedHalf ? `${PL.ro.forcedHalf} rod on 1 channel` : ''
+  },
+  {
+    board: 'reactor', section: 'DADS DISPLAY', label: 'ROD DROP TEST', momentary: true,
+    pos: ['OFF', 'START'],
+    read: PL => PL.ro.dropTest.running ? 1 : 0,
+    write: (PL, v) => { if (v === 1) ROM.startDropTest(PL.ro); },
+    lamp: PL => PL.ro.dropTest.running ? 'red' : 'green',
+    note: PL => PL.ro.dropTest.done
+      ? `${Math.max(...PL.ro.dropTest.times.filter(t => t !== null)).toFixed(2)} s`
+      : 'needs a trip'
   },
   {
     board: 'reactor', section: 'ROD POSITION INDICATION', label: 'ROD MOTION',
@@ -366,7 +416,7 @@ export const SWITCHES = [
     board: 'cooling', section: 'SG BLOWDOWN', label: `SG ${'ABC'[i]} TUBE LEAK`,
     pos: ['NONE', '1 GPM', '25 GPM'],
     read: PL => PL.rd.sgLeakGpm[i] > 10 ? 2 : (PL.rd.sgLeakGpm[i] > 0 ? 1 : 0),
-    write: (PL, v) => RADAPI.setTubeLeak(PL.rd, i, [0, 1, 25][v]),
+    write: (PL, v) => RDM.setTubeLeak(PL.rd, i, [0, 1, 25][v]),
     lamp: PL => PL.rd.sgLeakGpm[i] > 0 ? 'red' : 'green',
     note: PL => PL.rd.sgLeakGpm[i] > 0
       ? `${PL.rd.sgLeakGpm[i].toFixed(0)} gpm`
@@ -387,7 +437,7 @@ export const SWITCHES = [
     board: 'cooling', section: 'SG BLOWDOWN', label: 'LETDOWN HX LEAK',
     pos: ['NONE', 'LEAKING'],
     read: PL => PL.rd.letdownHxLeakGpm > 0 ? 1 : 0,
-    write: (PL, v) => RADAPI.setLetdownHxLeak(PL.rd, v === 1 ? 0.4 : 0),
+    write: (PL, v) => RDM.setLetdownHxLeak(PL.rd, v === 1 ? 0.4 : 0),
     lamp: PL => PL.rd.letdownHxLeakGpm > 0 ? 'red' : 'green',
     note: PL => `${(PL.cw.activityUCiMl * 1e3).toFixed(2)} nCi/ml`
   },
@@ -410,7 +460,7 @@ export const SWITCHES = [
   //  are spring-return-to-normal, so they read NORMAL and are momentary: you
   //  cannot leave a trip switch sitting in the tripped position.
   {
-    board: 'reactor', section: 'REACTOR TRIP', label: 'MANUAL TRIP', key: true,
+    board: 'reactor', section: 'REACTOR TRIP', label: 'MANUAL TRIP', key: true, momentary: true,
     pos: ['NORMAL', 'TRIP'],
     read: () => 0,
     write: (PL, v) => {
@@ -423,7 +473,7 @@ export const SWITCHES = [
     note: PL => PL.trip ? (PL.tripFirst || 'tripped') : 'reactor on line'
   },
   {
-    board: 'secondary', section: 'TURBINE', label: 'TURBINE TRIP',
+    board: 'secondary', section: 'TURBINE', label: 'TURBINE TRIP', momentary: true,
     pos: ['NORMAL', 'TRIP'],
     read: () => 0,
     write: (PL, v) => { if (v === 1) { PL.sec.tripped = true; PL.sec.online = false; } },
@@ -511,7 +561,7 @@ export const SWITCHES = [
     board: 'cooling', section: 'COMPONENT COOLING PUMPS', label: 'CCW HEADER',
     pos: ['ISOLATE', 'NORMAL'],
     read: PL => PL.cw.isolated ? 0 : 1,
-    write: (PL, v) => { if (v === 1) CCWAPI.restoreCCW(PL.cw); else CCWAPI.loseCCW(PL.cw); },
+    write: (PL, v) => { if (v === 1) CWM.restoreCCW(PL.cw); else CWM.loseCCW(PL.cw); },
     lamp: PL => PL.cw.isolated ? 'green' : 'red',
     note: PL => `${PL.cw.supplyF.toFixed(0)} \u00b0F supply`
   },
@@ -524,7 +574,7 @@ export const SWITCHES = [
     note: PL => PL.cw.swPumpOn[i] ? 'running' : (PL.cw.swPumpAuto[i] ? 'standby' : 'stopped')
   })),
   {
-    board: 'cooling', section: 'SERVICE WATER PUMPS', label: 'STRAINER BACKWASH',
+    board: 'cooling', section: 'SERVICE WATER PUMPS', label: 'STRAINER BACKWASH', momentary: true,
     pos: ['OFF', 'BACKWASH'],
     read: () => 0,
     write: (PL, v) => { if (v === 1) PL.cw.strainerFoul = 0.08; },
@@ -687,7 +737,17 @@ export function actuate(PL, idx, pos, api) {
     try { cur = sw.read(PL) | 0; } catch (e) { cur = 0; }
     target = (cur + 1) % sw.pos.length;
   } else target = Math.max(0, Math.min(sw.pos.length - 1, pos | 0));
-  try { sw.write(PL, target, api); } catch (e) { return false; }
+  // Failures are REPORTED, not swallowed.  This used to return false on any
+  // exception and callers ignored the return value, so a switch whose write
+  // threw -- a missing api, a bad import -- looked exactly like a switch that
+  // worked. That is how nine dead handles went unnoticed.
+  try {
+    sw.write(PL, target, api);
+  } catch (e) {
+    if (typeof console !== 'undefined' && console.warn)
+      console.warn(`switch "${sw.label}" write failed:`, e && e.message);
+    return false;
+  }
   return true;
 }
 

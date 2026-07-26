@@ -202,5 +202,138 @@ console.log('\n=== H. no runaway numbers ===\n');
   }
 }
 
+console.log('\n=== I. the core map ===\n');
+{
+  const loc = RO.rccaLocations();
+  ok('157 assemblies in the lattice',
+     RO.ROW_WIDTHS.reduce((a, b) => a + b, 0) === 157,
+     '13x13 with three cut from each corner');
+  ok('48 rod cluster locations', loc.length === 48);
+  ok('every location is inside the core',
+     loc.every(l => RO.inCore(l.row, l.col)));
+  ok('no location used twice',
+     new Set(loc.map(l => l.row + ',' + l.col)).size === 48);
+  ok('no rod at the core centre',
+     !loc.some(l => l.row === 6 && l.col === 6),
+     'the centre assembly carries instrumentation, not a cluster');
+
+  // Symmetry is the property worth asserting: the pattern is generated, so a
+  // change to the generator that broke symmetry would otherwise go unnoticed.
+  const set = new Set(loc.map(l => l.row + ',' + l.col));
+  ok('symmetric under 180 degrees',
+     loc.every(l => set.has((12 - l.row) + ',' + (12 - l.col))));
+  ok('symmetric under transpose',
+     loc.every(l => set.has(l.col + ',' + l.row)));
+
+  const PL = fresh(120);
+  ok('every rod carries a core address',
+     PL.ro.rods.every(r => /^[A-N]\d{1,2}$/.test(r.core)),
+     PL.ro.rods.slice(0, 3).map(r => r.core).join(' '));
+  ok('core addresses are unique',
+     new Set(PL.ro.rods.map(r => r.core)).size === 48);
+  ok('rows are lettered without I', !RO.CORE_ROWS.includes('I'),
+     'I reads as a 1 on a core map');
+}
+
+console.log('\n=== J. rod insertion limits ===\n');
+{
+  const PL = fresh();
+  const rp = PL.rop;
+  const atPower = RO.insertionLimit(rp, 1.0, PL.banks.ctrlDemand);
+  console.log(`  full power: banks at ${PL.banks.ctrlDemand.toFixed(0)}, ` +
+              `limit ${atPower.limit.toFixed(0)}, margin ${atPower.margin.toFixed(0)} steps`);
+  ok('banks are above the limit at full power', !atPower.lo,
+     `${atPower.margin.toFixed(0)} steps of margin`);
+  ok('the limit rises with power',
+     RO.insertionLimit(rp, 1.0, 0).limit > RO.insertionLimit(rp, 0, 0).limit,
+     'a larger trip needs more margin from the banks left out');
+  const deep = RO.insertionLimit(rp, 1.0, rp.rilBase + rp.rilSlope - 5);
+  ok('driving the banks in violates it', deep.loLo);
+  const near = RO.insertionLimit(rp, 1.0, rp.rilBase + rp.rilSlope + 10);
+  ok('and warns before it does', near.lo && !near.loLo,
+     'low is the warning, low-low is the action');
+}
+
+console.log('\n=== K. DADS — the advanced display system ===\n');
+{
+  // Modelled against the Westinghouse data sheet, so these check the documented
+  // behaviour rather than a guess at it.
+  const PL = fresh(200);
+
+  // half accuracy: a CHOICE as well as a failure
+  RO.setHalfAccuracy(PL.ro, 'CD-1', true);
+  run(PL, 2);
+  const i = rodOf(PL, 'CD-1');
+  ok('a rod can be forced to half accuracy', PL.ro.rods[i].halfAccuracy);
+  ok('and it is annunciated separately from a failure', PL.ro.alarms.halfAccuracy,
+     'the operator has to know it is on 12-step resolution');
+  ok('it still indicates', PL.ro.drpi[i] !== null, 'degraded, not lost');
+  RO.setHalfAccuracy(PL.ro, 'CD-1', false);
+
+  // data cabinets: a fault takes a GROUP
+  const p2 = fresh(200);
+  RO.failCabinet(p2.ro, 2);
+  run(p2, 2);
+  const dark = p2.ro.drpi.filter(d => d === null).length;
+  ok('a cabinet fault darkens its whole group', dark === 12,
+     `${dark} rods, which is why diagnostics identify WHICH cabinet`);
+  ok('it is annunciated', p2.ro.alarms.cabinetFault);
+  ok('the other three cabinets keep indicating',
+     p2.ro.drpi.filter(d => d !== null).length === 36);
+
+  // Gray code: one bit changes per transition
+  let multibit = 0;
+  for (let n = 0; n < 37; n++) {
+    const a = RO.grayCode(n * 6, 6), b = RO.grayCode((n + 1) * 6, 6);
+    const diff = [...a].filter((c, k) => c !== b[k]).length;
+    if (diff !== 1) multibit++;
+  }
+  ok('Gray code changes one bit per step', multibit === 0,
+     'a read caught mid-transition is off by one step, not by half the core');
+
+  // redundant display trains
+  const p3 = fresh(200);
+  p3.ro.trainA = false;
+  run(p3, 2);
+  ok('losing one display train is a fault, not a loss',
+     p3.ro.alarms.trainFault && !p3.ro.alarms.displayLost);
+  ok('every rod still indicates on the surviving train',
+     p3.ro.drpi.every(d => d !== null),
+     'either train alone shows all rod positions');
+  p3.ro.trainB = false;
+  run(p3, 2);
+  ok('losing both is annunciated as lost', p3.ro.alarms.displayLost);
+}
+
+console.log('\n=== L. integrated rod drop testing ===\n');
+{
+  const PL = fresh(200);
+  RO.startDropTest(PL.ro);
+  PL.trip = true;                                // the test is timed off the breaker
+  run(PL, 8, 0.02);
+  const T = PL.ro.dropTest;
+  const times = T.times.filter(t => t !== null);
+  console.log(`  ${times.length} of 48 rods timed, ` +
+              `${Math.min(...times).toFixed(2)}–${Math.max(...times).toFixed(2)} s ` +
+              `against a ${PL.rop.dropTestLimitSec} s limit`);
+  ok('the test completes', T.done);
+  ok('every rod was timed', times.length === 48);
+  ok('all within the acceptance criterion',
+     times.every(t => t <= PL.rop.dropTestLimitSec) && !PL.ro.alarms.dropTestFail);
+  ok('timed to dashpot entry, not to zero',
+     PL.ro.rods.every(r => r.actual <= PL.rop.dashpotSteps),
+     'the dashpot decelerates the last stretch');
+
+  // a stuck rod fails the test rather than quietly never finishing
+  const p2 = fresh(200);
+  RO.stickRod(p2.ro, 'SB-1');
+  RO.startDropTest(p2.ro);
+  p2.trip = true;
+  run(p2, 20, 0.02);
+  ok('a stuck rod fails the drop test', p2.ro.alarms.dropTestFail);
+  ok('and the test still terminates', p2.ro.dropTest.done,
+     'it times out rather than waiting forever');
+}
+
 console.log(bad ? `\nROD AUDIT: ${bad} FAILED` : '\nROD AUDIT: ALL CHECKS PASSED');
 process.exit(bad ? 1 : 0);

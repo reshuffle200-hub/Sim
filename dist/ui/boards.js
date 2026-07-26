@@ -2,9 +2,10 @@
 //  boards.js — the four detail boards plus the overview
 //  Each board is a pure render function of the shared plant instance.
 // ======================================================================
-import * as W from './widgets.js?v=0.27.1';
-import * as AL from './alarms.js?v=0.27.1';
-import * as CT from './controls.js?v=0.27.1';
+import * as W from './widgets.js?v=0.28.1';
+import * as AL from './alarms.js?v=0.28.1';
+import * as CT from './controls.js?v=0.28.1';
+import * as RODS from '../lib/rods.js?v=0.28.1';
 const F = W.F, clamp = W.clamp, P = W.P;
 
 const cl = (v, lo, hi) => (v < lo || v > hi) ? 'bad' : '';
@@ -1142,6 +1143,43 @@ export function rodcontrol(PL) {
   const worstDev = R.deviation.reduce((a, d, i) =>
     R.drpi[i] !== null && Math.abs(d) > Math.abs(a) ? d : a, 0);
 
+  // ---- core map -------------------------------------------------------
+  // The grouped rows below answer "is this bank aligned". The map answers
+  // "where is the fault", which is a different question: a rod stuck at the
+  // core centre is worth far more than one at the periphery, and its
+  // neighbours are what a real diagnosis looks at next. Neither view replaces
+  // the other, so the display carries both.
+  const byCell = new Map();
+  R.rods.forEach((rod, i) => byCell.set(rod.row + ',' + rod.col, [rod, i]));
+
+  let map = '';
+  for (let r = 0; r < RODS.CORE_ROWS.length; r++) {
+    let cells = '';
+    for (let c = 0; c < 13; c++) {
+      if (!RODS.inCore(r, c)) { cells += '<i class="cx"></i>'; continue; }
+      const hit = byCell.get(r + ',' + c);
+      if (!hit) { cells += '<i class="cf"></i>'; continue; }
+      const [rod, i] = hit;
+      const d = R.drpi[i], lost = d === null;
+      const bad = !lost && d <= rp.rodBottomSteps && rod.demand > rp.rodBottomSteps;
+      const warn = !lost && Math.abs(R.deviation[i]) > rp.deviationSteps;
+      const k = lost ? 'cl' : (bad ? 'cd' : (warn ? 'cw' : 'cn'));
+      const pct = lost ? 0 : (d / S * 100);
+      cells += `<i class="cr ${k}" style="--f:${pct.toFixed(0)}%" title="${rod.core} · ${rod.id}` +
+        ` · demand ${rod.demand} · ${lost ? 'no indication' : 'DRPI ' + d}` +
+        ` · gray ${R.gray[i]} · cab ${R.cabinet[i] + 1}` +
+        `${rod.halfAccuracy ? ' · HALF ACCURACY' : ''}">` +
+        `<b>${rod.group}</b></i>`;
+    }
+    cells += `<i class="cy">${RODS.CORE_ROWS[r]}</i>`;
+    map += `<div class="crow">${cells}</div>`;
+  }
+  let colhdr = '';
+  for (let c = 0; c < 13; c++) colhdr += `<i class="cy">${c + 1}</i>`;
+  map += `<div class="crow">${colhdr}<i class="cy"></i></div>`;
+
+  const ril = RODS.insertionLimit(rp, PL.k.Ptot, PL.banks.ctrlDemand);
+
   return `<div class="grid3">
   ${W.card('Rod control', `<div class="rows">${W.rows([
     ['Mode', PL.rodAuto ? 'AUTOMATIC' : 'MANUAL', PL.rodAuto ? 'good' : 'warn'],
@@ -1150,7 +1188,11 @@ export function rodcontrol(PL) {
     ['Tref programmed', F(PL.Tref, 1) + ' °F', 'dimv'],
     ['Error', F(PL.S.Tavg - PL.Tref, 2) + ' °F',
       Math.abs(PL.S.Tavg - PL.Tref) > (PL.rodDeadbandF ?? 1.5) ? 'warn' : 'good'],
-    ['Rod worth', F(PL.rho ? PL.rho.rods : 0, 0) + ' pcm', 'dimv']
+    ['Rod worth', F(PL.rho ? PL.rho.rods : 0, 0) + ' pcm', 'dimv'],
+    ['Insertion limit', F(ril.limit, 0) + ' steps',
+      ril.loLo ? 'bad' : (ril.lo ? 'warn' : 'good')],
+    ['Margin to limit', F(ril.margin, 0) + ' steps',
+      ril.loLo ? 'bad' : (ril.lo ? 'warn' : 'good')]
   ])}</div>`, `${R.rods.length} assemblies`)}
 
   ${W.card('Position indication', `<div class="rows">${W.rows([
@@ -1181,6 +1223,28 @@ export function rodcontrol(PL) {
       ? (R.alarms.notAtBottom ? 'NO' : 'yes') : 'n/a — not tripped',
       PL.trip && R.alarms.notAtBottom ? 'bad' : 'dimv']
   ])}</div>`)}
+
+  ${W.card('DADS status', `<div class="rows">${W.rows([
+    ['Display train A', R.trainA ? 'in service' : 'OUT', R.trainA ? 'good' : 'bad'],
+    ['Display train B', R.trainB ? 'in service' : 'OUT', R.trainB ? 'good' : 'bad'],
+    ['Indication', R.alarms.displayLost ? 'LOST' : 'available',
+      R.alarms.displayLost ? 'bad' : 'good'],
+    ['Data cabinets', (RODS.N_CABINETS - R.cabinetsFailed) + ' of ' + RODS.N_CABINETS,
+      R.cabinetsFailed ? 'bad' : 'good'],
+    ['Forced half accuracy', R.forcedHalf || 'none', R.forcedHalf ? 'warn' : 'good'],
+    ['Rod drop test', R.dropTest.running ? `running ${F(R.dropTest.t, 1)} s`
+      : (R.dropTest.done
+        ? `${F(Math.max(...R.dropTest.times.filter(t => t !== null)), 2)} s slowest`
+        : 'not run'),
+      R.alarms.dropTestFail ? 'bad' : (R.dropTest.done ? 'good' : 'dimv')],
+    ['Drop test limit', F(rp.dropTestLimitSec, 1) + ' s to dashpot', 'dimv']
+  ])}</div>`, 'redundant trains')}
+  </div>
+
+  <div class="grid3" style="grid-template-columns:1fr">
+  ${W.card('Core map', `<div class="coremap">${map}</div>`,
+    '157 assemblies · 48 RCCA · four-fold symmetric')}
+
   </div>
 
   ${W.card('Rod position indication', `<div class="rodwall">

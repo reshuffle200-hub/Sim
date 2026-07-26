@@ -42,7 +42,7 @@
 //  problem becomes a steam generator level problem.
 // ======================================================================
 
-import * as PR from './props.js?v=0.27.1';
+import * as PR from './props.js?v=0.28.1';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const INHG_PER_PSI = 2.03602;

@@ -33,7 +33,7 @@ tools/       stamp.mjs (deploy-time cache busting), bundle.mjs (single-file buil
 ```
 
 ## Annunciator and switches
-The board carries **423 annunciator windows in 29 sections** and **99 control
+The board carries **430 annunciator windows in 29 sections** and **107 control
 switches**. The count is high for one reason: a real board does not have one
 `SG LEVEL LOW` window, it has one per steam generator, because "which one" is
 the first question an operator asks and a shared window cannot answer it. The
@@ -82,7 +82,7 @@ Both read from the same place so they cannot drift. Every foreground/background
 pair is AA or better.
 
 ## Annunciator
-423 windows in 29 bays, each window reading a distinct piece of plant state.
+430 windows in 29 bays, each window reading a distinct piece of plant state.
 Bays follow the board's physical divisions — protection, protection channels,
 nuclear instrumentation, pressurizer, reactor coolant, one bay per steam
 generator, steam and feedwater, safeguards, containment, RHR, CVCS, electrical —

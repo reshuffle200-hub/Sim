@@ -394,6 +394,36 @@ footer{color:#2b3027;font-family:var(--cond);font-size:11.5px;letter-spacing:.11
 .annsec .tiles{display:grid;grid-template-columns:repeat(6,1fr);
   gap:1px;padding:1px;background:#23281f;box-shadow:none;
   border-radius:0 0 2px 2px}
+/* ================================================= core map
+   The core seen from above: 157 assemblies, 48 of them carrying a rod cluster.
+   Each rod cell fills from the bottom in proportion to its indicated position,
+   so an out-of-place rod is found by SHAPE and by WHERE IT SITS -- a rod stuck
+   at the core centre is worth far more than one at the periphery, and that is
+   not something a list of forty-eight numbers can show. */
+.coremap{display:flex;flex-direction:column;gap:2px;align-items:center;
+  padding:6px 2px 2px}
+.crow{display:flex;gap:2px}
+.coremap i{width:23px;height:23px;display:block;border-radius:1px;position:relative;
+  font-style:normal}
+.coremap .cx{background:none}
+.coremap .cf{background:#2b3128;border:1px solid #232820}
+.coremap .cy{background:none;font-family:var(--cond);font-size:9px;color:#78806e;
+  display:flex;align-items:center;justify-content:center;letter-spacing:.04em}
+.coremap .cr{border:1px solid #2c3227;background:#171a14;overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.6);cursor:default}
+.coremap .cr::after{content:'';position:absolute;left:0;right:0;bottom:0;
+  height:var(--f);background:linear-gradient(180deg,#7fd18a,#4e9c58)}
+.coremap .cr b{position:relative;z-index:1;display:flex;height:100%;
+  align-items:center;justify-content:center;font-family:var(--cond);font-size:7.5px;
+  font-weight:600;letter-spacing:.02em;color:#0f1a12;text-shadow:0 1px 0 rgba(255,255,255,.18)}
+.coremap .cw::after{background:linear-gradient(180deg,#e8c46a,#b8912f)}
+.coremap .cd{border-color:#b84a34;box-shadow:0 0 0 1px rgba(224,80,58,.45),
+  inset 0 1px 2px rgba(0,0,0,.6)}
+.coremap .cd b{color:#f6b3a2;text-shadow:none}
+.coremap .cl{background:repeating-linear-gradient(45deg,#20241c,#20241c 3px,#171a14 3px,#171a14 6px)}
+.coremap .cl b{color:#828a78;text-shadow:none}
+@media(max-width:760px){ .coremap i{width:19px;height:19px} .coremap .cr b{font-size:6.5px} }
+
 /* ================================================= rod position indication
    Each rod is a small vertical gauge rather than a printed number, because a
    dropped rod should be a SHAPE the eye catches across forty-eight of them,
@@ -663,6 +693,7 @@ import * as B from './ui/boards.js';
 import * as IC from './lib/ic.js';
 import * as RH from './lib/rhr.js';
 import * as CW from './lib/ccw.js';
+import * as RODS from './lib/rods.js';
 import * as RD from './lib/rad.js';
 import * as SIM from './lib/si.js';
 import * as SU from './lib/startup.js';
@@ -854,16 +885,9 @@ function renderTiles() {
 const BOARDS = { overview:B.overview, reactor:B.reactor, startup:B.startup, rcs:B.rcs,
                  secondary:B.secondary, safeguards:B.safeguards, cooling:B.cooling, radiation:B.radiation, rodcontrol:B.rodcontrol,
                  electrical:B.electrical };
-// Control functions the switches need.  Passed in rather than imported by
-// controls.js so the switch table stays a description of the board and does
-// not become a second place that knows how the plant is wired.
-const SWAPI = { closeGenBreaker: EL.closeGenBreaker, loseOffsite: EL.loseOffsite,
-                restoreOffsite: EL.restoreOffsite, setChannel: RPS.setChannel,
-                blockSI: SIM.blockSI, placeInService: RH.placeInService };
-CT.wireCCW({ loseCCW: CW.loseCCW, restoreCCW: CW.restoreCCW });
-CT.wireSI({ setAccIsolation: SIM.setAccIsolation });
-CT.wireRad({ setTubeLeak: RD.setTubeLeak, setLetdownHxLeak: RD.setLetdownHxLeak,
-             resetBlowdown: RD.resetBlowdown, resetCrIsolation: RD.resetCrIsolation });
+// One definition of the switch api, in controls.js, so the shell and the tests
+// cannot drift apart about what a switch is allowed to call.
+const SWAPI = CT.switchApi();
 const DRAW = { reactor:B.drawReactorCanvases, startup:B.drawStartupCanvases,
                rcs:B.drawRCSCanvases,
                secondary:B.drawSecondaryCanvases, electrical:B.drawElecCanvases };

@@ -52,6 +52,89 @@ export const GROUPS = [
   { id: 'SB', name: 'SHUTDOWN B', kind: 'sd',   idx: 1, n: 12 }
 ];
 
+//  CORE MAP.  A 157-assembly core is a 13x13 lattice with three assemblies cut
+//  from each corner -- 169 minus 12 -- which is why the row widths below sum to
+//  exactly 157.  Rows are lettered A to N skipping I, as reactor engineers
+//  label them, because I reads as a 1.
+//
+//  The RCCA pattern is generated rather than transcribed: twelve seed positions
+//  on alternate lattice sites, each rotated four ways about the centre, giving
+//  48 assemblies with four-fold symmetry and no centre rod.  It is a
+//  REPRESENTATIVE pattern, not a specific plant's core loading -- what is real
+//  and worth relying on is the symmetry and the count, both of which the tests
+//  assert.  Nothing physical is derived from a rod's map position; the map is
+//  for the eye, because a dropped rod means something different at the core
+//  centre than at the periphery and a list of forty-eight numbers cannot show
+//  that.
+export const CORE_ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N'];
+export const ROW_WIDTHS = [9, 11, 13, 13, 13, 13, 13, 13, 13, 13, 13, 11, 9];
+const CENTRE = 6;
+
+export function inCore(r, c) {
+  if (r < 0 || r > 12 || c < 0 || c > 12) return false;
+  return Math.abs(c - CENTRE) <= (ROW_WIDTHS[r] - 1) / 2;
+}
+
+/** The 48 RCCA locations, four-fold symmetric, ordered centre outwards. */
+export function rccaLocations() {
+  const orbit = (dr, dc) => [[dr, dc], [-dc, dr], [-dr, -dc], [dc, -dr]];
+  const cand = [];
+  for (let dr = -CENTRE; dr <= CENTRE; dr++)
+    for (let dc = -CENTRE; dc <= CENTRE; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      if ((dr + dc) % 2 !== 0) continue;
+      cand.push([dr, dc, dr * dr + dc * dc]);
+    }
+  cand.sort((a, b) => a[2] - b[2]);
+  const used = new Set(), out = [];
+  for (const [dr, dc] of cand) {
+    if (out.length >= 48) break;
+    const orb = orbit(dr, dc);
+    if (orb.some(([a, b]) => used.has(a + ',' + b))) continue;
+    if (!orb.every(([a, b]) => inCore(CENTRE + a, CENTRE + b))) continue;
+    for (const [a, b] of orb) {
+      used.add(a + ',' + b);
+      out.push({ row: CENTRE + a, col: CENTRE + b,
+                 id: CORE_ROWS[CENTRE + a] + (CENTRE + b + 1) });
+    }
+  }
+  return out;
+}
+
+//  DADS — the DRPI Advanced Display System.
+//
+//  Modelled against the Westinghouse data sheet rather than invented, which is
+//  why the vocabulary here is theirs: HALF ACCURACY MODE, DATA CABINETS, GRAY
+//  CODES, redundant display trains, integrated rod drop testing.  The features
+//  that made it into this model are the ones an operator can see the effect of:
+//
+//    half accuracy   the laptop can force an individual rod to single-channel
+//                    operation to limit the impact of a coil failure.  This is
+//                    the real name for the degraded mode already modelled here,
+//                    and it is a CHOICE as well as a failure -- you accept
+//                    twelve-step resolution to keep an indication you trust.
+//    data cabinets   rods are addressed in groups, so a cabinet fault takes out
+//                    a set of rods at once rather than one.  Diagnosing which
+//                    cabinet is the point of the advanced diagnostics.
+//    Gray code       the coil stack reports position Gray-coded, one bit
+//                    changing per transition, so a read caught mid-transition
+//                    is off by one step and not by half the core.
+//    two trains      redundant displays; maintenance on one while the other
+//                    keeps indicating, and either alone shows every rod.
+//    rod drop test   integrated and automatic, timed off the trip breaker.
+//
+//  Not modelled: error-log playback, cRIO resource status, backlight heartbeat
+//  monitoring, hot-swappable supplies. Those are maintenance-side features with
+//  nothing for an operator at the board to observe.
+export const N_CABINETS = 4;
+
+/** Gray code of the coil count, as the data cabinets actually report it. */
+export function grayCode(steps, spacing) {
+  const n = Math.max(0, Math.round(steps / spacing));
+  const g = n ^ (n >> 1);
+  return g.toString(2).padStart(6, '0');
+}
+
 export function rodParams() {
   return {
     coilSpacing: 6,            // steps between DRPI coils
@@ -65,24 +148,51 @@ export function rodParams() {
     bankDeviationSteps: 12,
     rodBottomSteps: 6,
 
-    tauDrive: 0.4              // s, drive response lag
+    // Rod insertion limit: a SETPOINT, not physics.  The real curve is
+    // plant-specific and this one is representative -- what it encodes
+    // faithfully is the shape, that the limit rises with power because the
+    // shutdown margin available from the remaining banks has to cover a larger
+    // trip.  Treated like every other alarm setpoint in this model.
+    rilBase: 40,               // steps at zero power
+    rilSlope: 130,             // additional steps per unit power
+    rilMarginSteps: 20,        // low-low alarm below the limit
+
+    tauDrive: 0.4,             // s, drive response lag
+
+    // Rod drop testing, integrated per the data sheet and timed off the trip
+    // breaker.  The acceptance criterion is time to dashpot entry.
+    dropTestLimitSec: 2.4,
+    dashpotSteps: 20           // dashpot entry, where the drop timing stops
   };
 }
 
 export function makeRods(P, stepsPerBank = 228) {
   const rods = [];
+  const loc = rccaLocations();
+  let li = 0;
   for (const g of GROUPS) {
     for (let k = 0; k < g.n; k++) {
+      const L = loc[li++] || { row: 6, col: 6, id: '--' };
       rods.push({
+        core: L.id, row: L.row, col: L.col,
         id: `${g.id}-${k + 1}`, group: g.id, kind: g.kind, bank: g.idx,
         demand: stepsPerBank, actual: stepsPerBank,
-        stuck: false, dropped: false, slip: 0,
+        stuck: false, dropped: false, slip: 0, halfAccuracy: false,
         drpiA: true, drpiB: true          // both coil channels healthy
       });
     }
   }
   return {
     rods, stepsPerBank,
+    // Display trains: either alone shows every rod, which is the point of the
+    // redundancy -- a failed train degrades maintenance access, not indication.
+    trainA: true, trainB: true,
+    cabinet: rods.map((_, i) => i % N_CABINETS),
+    cabinetOK: Array.from({ length: N_CABINETS }, () => true),
+    gray: rods.map(() => '000000'),
+    dropTest: { running: false, t: 0, times: rods.map(() => null), done: false },
+    events: [],
+
     drpi: rods.map(() => stepsPerBank),
     deviation: rods.map(() => 0),
     alarms: {}, anyDropped: false, anyStuck: false, anyDeviation: false,
@@ -99,8 +209,14 @@ export function makeRods(P, stepsPerBank = 228) {
  * with no position indication is not a rod at the bottom, and conflating those
  * two is exactly the confusion that gets a shutdown margin calculation wrong.
  */
-export function readDRPI(P, rod, stepsPerBank) {
-  const n = (rod.drpiA ? 1 : 0) + (rod.drpiB ? 1 : 0);
+export function readDRPI(P, rod, stepsPerBank, cabinetOK = true) {
+  // A dead data cabinet takes its whole group of rods with it -- that is why
+  // the diagnostics bother to identify WHICH cabinet.
+  if (!cabinetOK) return null;
+  // Half accuracy is either forced from the maintenance laptop or the
+  // consequence of losing a channel; the instrument cannot tell the difference
+  // and neither should this.
+  const n = rod.halfAccuracy ? 1 : (rod.drpiA ? 1 : 0) + (rod.drpiB ? 1 : 0);
   if (n === 0) return null;
   const spacing = P.coilSpacing * (n === 1 ? 2 : 1);
   const q = Math.round(rod.actual / spacing) * spacing;
@@ -148,7 +264,8 @@ export function stepRods(P, R, demand, dt, opt = {}) {
       if (rod.slip) rod.actual = clamp(rod.actual - rod.slip / 60 * dt, 0, S);
     }
 
-    R.drpi[i] = readDRPI(P, rod, S);
+    R.drpi[i] = readDRPI(P, rod, S, R.cabinetOK[R.cabinet[i]]);
+    R.gray[i] = R.drpi[i] === null ? '------' : grayCode(R.drpi[i], P.coilSpacing);
     // Deviation is measured against INDICATION, because that is all an
     // operator has.  A rod that has slipped less than the coil spacing is
     // genuinely undetectable and the model should not pretend otherwise.
@@ -174,7 +291,23 @@ export function stepRods(P, R, demand, dt, opt = {}) {
   R.anyStuck = R.rods.some(r => r.stuck);
   R.anyDeviation = R.deviation.some((d, i) =>
     R.drpi[i] !== null && Math.abs(d) > P.deviationSteps);
-  R.degradedChannels = R.rods.filter(r => !r.drpiA || !r.drpiB).length;
+  R.degradedChannels = R.rods.filter(r => r.halfAccuracy || !r.drpiA || !r.drpiB).length;
+  R.forcedHalf = R.rods.filter(r => r.halfAccuracy).length;
+  R.cabinetsFailed = R.cabinetOK.filter(v => !v).length;
+
+  // ---- integrated rod drop test ----
+  // Timed off the trip breaker, per the data sheet. The criterion is time to
+  // DASHPOT ENTRY, not to zero: the dashpot decelerates the last stretch, so
+  // timing to the bottom would measure the dashpot rather than the drop.
+  const D = R.dropTest;
+  if (D.running) {
+    D.t += dt;
+    for (let i = 0; i < R.rods.length; i++)
+      if (D.times[i] === null && R.rods[i].actual <= P.dashpotSteps) D.times[i] = D.t;
+    if (D.times.every(t => t !== null) || D.t > P.dropTestLimitSec * 6) {
+      D.running = false; D.done = true;
+    }
+  }
 
   R.alarms = {
     rodDeviation:   R.anyDeviation,
@@ -184,7 +317,13 @@ export function stepRods(P, R, demand, dt, opt = {}) {
     drpiDegraded:   R.degradedChannels > 0,
     drpiLost:       R.rods.some(r => !r.drpiA && !r.drpiB),
     urgentFailure:  R.rods.some(r => r.stuck) || R.anyDropped,
-    notAtBottom:    tripped && R.rods.some(r => r.actual > P.rodBottomSteps)
+    notAtBottom:    tripped && R.rods.some(r => r.actual > P.rodBottomSteps),
+    halfAccuracy:   R.forcedHalf > 0,
+    cabinetFault:   R.cabinetsFailed > 0,
+    trainFault:     !R.trainA || !R.trainB,
+    displayLost:    !R.trainA && !R.trainB,
+    dropTestFail:   R.dropTest.done && R.dropTest.times.some(
+                      t => t === null || t > P.dropTestLimitSec)
   };
   return R;
 }
@@ -215,6 +354,20 @@ export function rodWorthActual(rxP, R, bankIntegral) {
   return w;
 }
 
+/**
+ * Rod insertion limit for the current power, on the demand counter.
+ * Returns the limit and how much margin is left to it.
+ */
+export function insertionLimit(P, powerFrac, ctrlDemand) {
+  const limit = P.rilBase + P.rilSlope * clamp(powerFrac, 0, 1);
+  return {
+    limit,
+    margin: ctrlDemand - limit,
+    lo: ctrlDemand < limit + P.rilMarginSteps,
+    loLo: ctrlDemand < limit
+  };
+}
+
 /** Align every rod to its demand: the lineup a healthy core starts from. */
 export function alignRods(R, demand) {
   const S = R.stepsPerBank;
@@ -226,6 +379,18 @@ export function alignRods(R, demand) {
   }
   return R;
 }
+
+/** Start the integrated rod drop test. Requires the rods to be free to fall. */
+export function startDropTest(R) {
+  R.dropTest = { running: true, t: 0, times: R.rods.map(() => null), done: false };
+  R.events.push({ t: Date.now(), what: 'ROD DROP TEST STARTED' });
+}
+/** Force a rod to single-channel operation from the maintenance laptop. */
+export function setHalfAccuracy(R, id, on) {
+  const r = find(R, id);
+  if (r) r.halfAccuracy = !!on;
+}
+export function failCabinet(R, n, ok = false) { R.cabinetOK[n] = ok; }
 
 export function dropRod(R, id)    { const r = find(R, id); if (r) r.dropped = true; }
 export function stickRod(R, id)   { const r = find(R, id); if (r) r.stuck = true; }
