@@ -1,5 +1,5 @@
-import * as P from './lib/plant.js';
-import * as EL from './lib/elec.js';
+import * as P from '../lib/plant.js';
+import * as EL from '../lib/elec.js';
 const F=(x,n=1)=>Number(x).toFixed(n);
 const hdr='   t(s)  power%  Tavg   RCPs  Vaux  Vsafe  flow%  genMWe  net   EDG rdy/bkr  trip';
 const row=PL=>{const s=P.snapshot(PL);

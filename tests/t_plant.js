@@ -1,4 +1,4 @@
-import * as P from './lib/plant.js';
+import * as P from '../lib/plant.js';
 const F=(x,n=1)=>Number(x).toFixed(n);
 const row=s=>`  ${F(s.t,0).padStart(5)}  ${F(s.power,2).padStart(6)}  ${F(s.Tavg,1)}  ${F(s.Ppzr,0).padStart(5)}  ${F(s.pzrLvl,1).padStart(5)}  ${F(s.Psec,0).padStart(5)}  ${F(s.sgLvl[0],1).padStart(5)}  ${F(s.Wsteam,2)}  ${F(s.MWe,0).padStart(4)}  ${F(s.Tfw,0)}  ${F(s.ppm,0).padStart(5)}`;
 const hdr='   t(s)  power%   Tavg   Ppzr   lvl%   Psec   SGlvl  Wstm  MWe  Tfw   ppm';

@@ -1,6 +1,6 @@
-import * as PR from './lib/props.js';
-import * as R from './lib/rcs.js';
-import * as SG from './lib/sg.js';
+import * as PR from '../lib/props.js';
+import * as R from '../lib/rcs.js';
+import * as SG from '../lib/sg.js';
 const F=(x,n=3)=>Number(x).toFixed(n);
 let FAIL=0; const chk=(ok,msg)=>{ if(!ok){FAIL++;console.log('  ** FAIL: '+msg);} };
 const P=SG.sgParams(), rp=R.rcsParams();

@@ -6,22 +6,46 @@
 <title>Unit 1 — Westinghouse 3-Loop PWR — Overview</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0d1117; --surface:#151b23; --surface2:#1c242e; --line:#242d38;
-  --ink:#e6edf3; --dim:#8b98a5; --dim2:#5e6b7a;
-  --accent:#4a9eff; --good:#3fb950; --warn:#d29922; --bad:#f85149;
-  --violet:#a371f7; --teal:#39c5cf;
+  /* ---- painted panel steel.  US PWR control boards are this grey-green. ---- */
+  --panel:#8e9a8c; --panel-hi:#a8b2a1; --panel-lo:#5d6759; --panel-deep:#3f473c;
+  --plate:#c7ccbe;              /* phenolic nameplate laminate */
+  --legend:#14180f;             /* engraved legend, near black */
+
+  /* ---- instrument faces: glass over phosphor, green-black ---- */
+  --face:#0a0d0b; --face2:#121711;
+  --ink:#e8e6d8; --dim:#969c8a; --dim2:#78826f;
+
+  /* ---- indications ---- */
+  --phosphor:#ffb02e;           /* amber digital readout */
+  --accent:#5b9dd9; --good:#5fbe62; --warn:#f0a92a; --bad:#e0503a;
+  --violet:#a98ae0; --teal:#4fc4c8;
+
   --mono:'JetBrains Mono',ui-monospace,monospace;
-  --sans:'Inter',system-ui,sans-serif;
-  --r:10px;
+  --seg:'Share Tech Mono',ui-monospace,monospace;
+  --sans:'Barlow',system-ui,sans-serif;
+  --cond:'Barlow Condensed','Barlow',system-ui,sans-serif;
+  --r:3px;                      /* panel cutouts are cut, not rounded */
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
-  padding:16px;min-height:100vh;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+body{
+  /* painted sheet steel: a soft vertical fall of light, faint brush grain */
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.014) 0 2px,transparent 2px 4px),
+    linear-gradient(180deg,var(--panel-hi) 0%,var(--panel) 22%,var(--panel) 78%,var(--panel-lo) 100%);
+  background-attachment:fixed;
+  color:var(--legend);font-family:var(--sans);font-size:14px;
+  padding:18px;min-height:100vh;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1560px;margin:0 auto;display:flex;flex-direction:column;gap:13px;position:relative}
+
+/* panel hardware: four pan-head screws holding the board section down */
+.wrap::before,.wrap::after{content:'';position:absolute;width:9px;height:9px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#c2c8b8,#767e6d 60%,#4d5548);
+  box-shadow:0 1px 0 rgba(255,255,255,.25),inset 0 -1px 1px rgba(0,0,0,.4);pointer-events:none}
+.wrap::before{top:-7px;left:-7px} .wrap::after{top:-7px;right:-7px}
 
 /* ---------- responsive ---------- */
 @media(max-width:980px){
@@ -29,35 +53,44 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
   .wrap{gap:9px}
   header{grid-template-columns:1fr}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr)}
-  .kpi{min-width:0;padding:10px 8px}
-  .kpi .v{font-size:20px}
-  .kpi .l,.kpi .u{font-size:9px}
-  .title{padding:12px 14px}
-  .title h1{font-size:17px}
-  .nav{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .nav button{white-space:nowrap;padding:9px 12px;font-size:12px}
-  .tiles{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
-  .tile{font-size:9.5px;min-height:34px;padding:6px 7px}
+  .kpis{gap:5px}
+  .kpi{min-width:0;padding:8px 9px}
+  .kpi .v{font-size:24px}
+  .kpi .l{font-size:9.5px;letter-spacing:.1em}
+  .kpi .u{font-size:9px}
+  .card.title{padding:11px 14px}
+  .title h1{font-size:19px;letter-spacing:.07em}
+  .title p{font-size:11.5px}
+  .nav{overflow-x:auto;-webkit-overflow-scrolling:touch;gap:5px}
+  .nav button{white-space:nowrap;padding:9px 13px;font-size:12.5px}
+  .annsec .tiles{grid-template-columns:repeat(auto-fill,minmax(56px,1fr))}
+  .tile{font-size:8.5px;min-height:39px}
   .hornbar{flex-wrap:wrap;gap:7px}
   .cv{height:auto}
 }
 @media(max-width:620px){
   body{padding:8px}
   .kpis{grid-template-columns:repeat(2,1fr)}
-  .title h1{font-size:15.5px}
-  .title p{font-size:11px}
-  .rows{padding:4px 12px 10px}
+  .title h1{font-size:16.5px;letter-spacing:.05em}
+  .title p{font-size:10.5px}
+  .rows{padding:5px 12px 10px}
   .row{padding:5px 0}
-  .row .k{font-size:11.5px}
-  .row .v{font-size:12.5px}
+  .row .k{font-size:12px}
+  .row .v{font-size:12px}
+  .kpi .v{font-size:22px}
+  .m .a{font-size:18px}
   .mini{grid-template-columns:1fr;gap:6px}
   .ctrls{grid-template-columns:1fr}
   .btns{grid-template-columns:1fr 1fr}
   .seg{grid-auto-flow:row}
-  .tiles{grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:5px}
-  .tile{font-size:9px;min-height:31px}
+  .annbank{padding:7px 9px 10px}
+  .annsec .tiles{grid-template-columns:repeat(auto-fill,minmax(52px,1fr))}
+  .tile{font-size:8.5px;min-height:37px;letter-spacing:.03em}
+  .annseclabel{font-size:9.5px;letter-spacing:.13em}
   .hornbar button{flex:1 1 45%}
-  .card h2{font-size:10px;padding:11px 12px 0}
+  .card h2{font-size:11px;padding:6px 12px 5px;letter-spacing:.13em}
+  body{padding:9px}
+  .wrap::before,.wrap::after{display:none}
 }
 /* canvases size themselves from an aspect ratio rather than a fixed height */
 .cv{width:100%;display:block}
@@ -72,116 +105,226 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
   #cEL{height:210px!important}
 }
 
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
-.card h2{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--dim);margin:0;padding:13px 16px 0}
+/* An instrument recessed into the panel: dark face, bezel shadow above and
+   left where the steel overhangs it, catch-light below and right. */
+.card{background:linear-gradient(180deg,var(--face2),var(--face));
+  border:1px solid var(--panel-deep);border-radius:var(--r);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.75),inset 0 0 0 1px rgba(0,0,0,.5),
+             0 1px 0 rgba(255,255,255,.22);
+  color:var(--ink)}
+/* Engraved phenolic nameplate, screwed to the bezel at the top of the cutout.
+   The legend is cut INTO the laminate, so it carries a shadow above and a
+   catch-light below -- that pair of shadows is the whole effect. */
+.card h2{font-family:var(--cond);font-size:12px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--legend);margin:0;
+  padding:7px 14px 6px;
+  background:linear-gradient(180deg,var(--plate),#b3b9ab);
+  border-bottom:1px solid var(--panel-deep);
+  border-radius:var(--r) var(--r) 0 0;
+  text-shadow:0 -1px 0 rgba(0,0,0,.3),0 1px 0 rgba(255,255,255,.5);
+  display:flex;align-items:baseline;gap:8px}
 
 /* header */
 header{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:stretch}
-.title{padding:16px 20px}
-.title h1{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
-.title p{margin:5px 0 0;color:var(--dim);font-size:12.5px}
-#buildTag{color:var(--dim2);font-family:var(--mono);font-size:11px}
-.kpis{display:flex;gap:1px;background:var(--line);border-radius:var(--r);overflow:hidden}
-.kpi{background:var(--surface);padding:14px 20px;min-width:120px;text-align:right}
-.kpi .l{font-size:10.5px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
-.kpi .v{font-family:var(--mono);font-size:25px;font-weight:600;line-height:1.15;margin-top:3px;
+.card.title{padding:13px 18px;background:linear-gradient(180deg,var(--plate),#b0b6a8);
+  box-shadow:0 1px 0 rgba(255,255,255,.3),inset 0 1px 0 rgba(255,255,255,.5),
+             0 2px 4px rgba(0,0,0,.22);
+  border-color:var(--panel-deep)}
+.title h1{margin:0;font-family:var(--cond);font-size:23px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--legend);
+  text-shadow:0 -1px 0 rgba(0,0,0,.28),0 1px 0 rgba(255,255,255,.55)}
+.title p{margin:4px 0 0;font-family:var(--cond);font-size:12.5px;font-weight:500;
+  letter-spacing:.05em;text-transform:uppercase;color:#414839}
+#buildTag{color:#5d6659;font-family:var(--mono);font-size:10.5px;letter-spacing:0}
+.kpis{display:flex;gap:7px;padding:0}
+.kpi{background:linear-gradient(180deg,var(--face2),var(--face));
+  border:1px solid var(--panel-deep);border-radius:var(--r);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.75),0 1px 0 rgba(255,255,255,.22);
+  padding:9px 15px 8px;min-width:124px;text-align:right}
+.kpi .l{font-family:var(--cond);font-size:10.5px;font-weight:600;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim)}
+.kpi .v{font-family:var(--seg);font-size:31px;line-height:1.05;margin-top:1px;
+  color:var(--phosphor);text-shadow:0 0 11px rgba(255,176,46,.5);
   font-variant-numeric:tabular-nums}
-.kpi .u{font-size:10.5px;color:var(--dim2);font-family:var(--mono)}
+.kpi .v.warn{color:var(--warn);text-shadow:0 0 11px rgba(240,169,42,.55)}
+.kpi .v.bad{color:var(--bad);text-shadow:0 0 13px rgba(224,80,58,.6)}
+.kpi .u{font-family:var(--cond);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--dim2)}
 
 /* trip banner */
-#banner{display:none;padding:12px 18px;border-radius:var(--r);
-  background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);
-  color:var(--bad);font-weight:600;font-size:14px;letter-spacing:.01em}
+/* An illuminated legend box, the one thing on the board you cannot miss. */
+#banner{display:none;padding:12px 18px;border-radius:2px;
+  background:linear-gradient(180deg,#ff8a72 0%,#e5533c 45%,#cf3f2b 100%);
+  border:1px solid #7d2317;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 26px rgba(224,80,58,.5);
+  color:#2c0a05;font-family:var(--cond);font-weight:700;font-size:17px;
+  letter-spacing:.13em;text-transform:uppercase;
+  text-shadow:0 1px 0 rgba(255,255,255,.32)}
 #banner.on{display:block}
-#banner span{color:var(--ink);font-weight:400;margin-left:10px}
+#banner span{display:block;margin:3px 0 0;font-family:var(--mono);font-size:11.5px;
+  font-weight:400;letter-spacing:0;text-transform:none;color:#3d1006;text-shadow:none}
 
 /* grid */
 .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 @media(max-width:1280px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.grid{grid-template-columns:1fr}}
-.rows{padding:6px 16px 14px}
-.row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;
-  border-bottom:1px solid rgba(255,255,255,.04);gap:12px}
+.rows{padding:7px 15px 13px}
+.row{display:flex;justify-content:space-between;align-items:baseline;padding:5.5px 0;
+  border-bottom:1px solid rgba(232,230,216,.055);gap:12px}
 .row:last-child{border-bottom:0}
-.row .k{color:var(--dim);font-size:12.5px}
-.row .v{font-family:var(--mono);font-size:13.5px;font-variant-numeric:tabular-nums;text-align:right}
+.row .k{font-family:var(--cond);font-size:12.5px;font-weight:500;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dim)}
+.row .v{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  text-align:right;color:var(--ink)}
 .v.good{color:var(--good)} .v.warn{color:var(--warn)} .v.bad{color:var(--bad)}
 .v.dimv{color:var(--dim2)}
 
 /* bar */
-.bar{height:5px;background:#0b1017;border-radius:3px;overflow:hidden;margin-top:7px}
-.bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .18s}
-.bar i.good{background:var(--good)} .bar i.warn{background:var(--warn)} .bar i.bad{background:var(--bad)}
+.bar{height:6px;background:#05070a;border-radius:1px;overflow:hidden;margin-top:7px;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.9),inset 0 0 0 1px rgba(0,0,0,.6)}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:0;transition:width .18s;
+  box-shadow:0 0 7px currentColor}
+.bar i.good{background:var(--good);color:var(--good)}
+.bar i.warn{background:var(--warn);color:var(--warn)}
+.bar i.bad{background:var(--bad);color:var(--bad)}
 
 /* loops / SGs as mini columns */
 .mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 16px 14px}
-.m{background:var(--surface2);border-radius:7px;padding:9px 10px}
-.m .t{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);font-weight:600}
-.m .a{font-family:var(--mono);font-size:16px;margin-top:3px;font-variant-numeric:tabular-nums}
-.m .b{font-family:var(--mono);font-size:11px;color:var(--dim2);margin-top:1px}
+.m{background:#080b09;border:1px solid rgba(0,0,0,.6);border-radius:2px;padding:9px 10px;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.7),0 1px 0 rgba(232,230,216,.06)}
+.m .t{font-family:var(--cond);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);font-weight:600}
+.m .a{font-family:var(--seg);font-size:20px;margin-top:2px;color:var(--phosphor);
+  text-shadow:0 0 9px rgba(255,176,46,.4);font-variant-numeric:tabular-nums;line-height:1.1}
+.m .b{font-family:var(--mono);font-size:10.5px;color:var(--dim2);margin-top:1px}
 
-/* annunciator */
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px;padding:8px 16px 14px}
-.tile{background:#10161d;border:1px solid var(--line);border-radius:6px;padding:8px 9px;
-  font-size:10.5px;font-weight:600;letter-spacing:.03em;color:#3d4855;min-height:38px;
-  display:flex;align-items:center;line-height:1.25;transition:all .12s}
-.tile.on{background:rgba(210,153,34,.16);border-color:rgba(210,153,34,.5);color:var(--warn)}
-.tile.on.bad{background:rgba(248,81,73,.16);border-color:rgba(248,81,73,.5);color:var(--bad)}
-.tile.on.ok{background:rgba(63,185,80,.14);border-color:rgba(63,185,80,.45);color:var(--good)}
-.tile.new{animation:bl .6s steps(1,end) infinite}
-.tile.ringback{background:rgba(57,197,207,.16);border-color:rgba(57,197,207,.5);color:var(--teal)}
+/* ---------------------------------------------------------------- annunciator
+   Backlit windows, not lamps.  Each tile is a piece of translucent plastic
+   with the legend engraved through it.  DARK, the legend is a ghost you can
+   just make out under the room lights.  LIT, the backlight comes on, the tile
+   glows, and the legend snaps to crisp black -- which is why an operator can
+   read the board from across the room only when something is wrong.
+   Sequence is carried in the colour: red trouble, amber caution, green
+   permissive, cyan ringback, grey awaiting reset. */
+.tile{
+  background:linear-gradient(180deg,#cdd1c3 0%,#bcc1b3 52%,#b1b6a8 100%);
+  border:1px solid #767e6d;border-top-color:#e2e6d8;border-radius:1px;
+  padding:4px 3px;min-height:41px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;line-height:1.17;
+  font-family:var(--cond);font-size:9px;font-weight:600;letter-spacing:.045em;
+  text-transform:uppercase;color:#363c30;
+  text-shadow:0 1px 0 rgba(255,255,255,.45);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 4px rgba(0,0,0,.16);
+  transition:background .1s linear,color .1s linear,box-shadow .1s linear}
+.tile span{display:block;white-space:nowrap}
+/* backlight on */
+.tile.on{color:#2a1c05;text-shadow:0 1px 0 rgba(255,255,255,.35);
+  background:linear-gradient(180deg,#ffd071 0%,#f5b02c 45%,#e9a11e 100%);
+  border-color:#8a6412;border-top-color:#ffe3a6;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 0 15px rgba(240,169,42,.42)}
+.tile.on.bad{color:#2c0a05;
+  background:linear-gradient(180deg,#ff8a72 0%,#e5533c 45%,#d5432e 100%);
+  border-color:#7d2317;border-top-color:#ffb3a1;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 17px rgba(224,80,58,.5)}
+.tile.on.ok{color:#08210a;
+  background:linear-gradient(180deg,#8fe093 0%,#5cbc60 45%,#4dab51 100%);
+  border-color:#1f5d23;border-top-color:#b6f0b9;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 15px rgba(95,190,98,.42)}
+.tile.ringback{color:#04211f;
+  background:linear-gradient(180deg,#8ce6e8 0%,#4fc4c8 45%,#3fb2b6 100%);
+  border-color:#175c5e;border-top-color:#b3f2f3;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 15px rgba(79,196,200,.42)}
+/* process cleared, window still lit until someone resets it */
+.tile.cleared{color:#1d211a;
+  background:linear-gradient(180deg,#fbfcf4 0%,#eaece0 48%,#dcdfd2 100%);
+  border-color:#8d9483;border-top-color:#ffffff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 16px rgba(245,247,236,.55)}
+/* 'Lit only' dims the dark windows instead of removing them, so every window
+   keeps the position the operator learned it in. */
+.tile.muted{opacity:.13}
+.tile.new{animation:bl .62s steps(1,end) infinite}
 .tile.ringback.rb{animation:bl 1.4s steps(1,end) infinite}
-.tile.cleared{background:rgba(139,152,165,.12);border-color:rgba(139,152,165,.4);color:var(--dim)}
-.tile .tag{margin-left:auto;font-size:8.5px;opacity:.75;letter-spacing:.05em}
-.hornbar{display:flex;align-items:center;gap:10px;padding:8px 16px 0;font-size:11.5px;color:var(--dim)}
-.hornbar b{font-family:var(--mono);color:var(--ink)}
-.hornlamp{width:9px;height:9px;border-radius:50%;background:#2a3441}
-.hornlamp.on{background:var(--bad);box-shadow:0 0 8px var(--bad)}
-.hornlamp.rb{background:var(--teal);box-shadow:0 0 8px var(--teal)}
-.tile.first{outline:2px solid var(--bad);outline-offset:1px}
-@keyframes bl{50%{opacity:.25}}
-@media(prefers-reduced-motion:reduce){.tile.new{animation:none}}
+.tile.first{position:relative}
+/* first-out: the window that started it keeps a scribed border */
+.tile.first{outline:2px solid #8e2416;outline-offset:-3px}
+.tile.on.first{outline-color:#2c0a05}
+
+.hornbar{display:flex;align-items:center;gap:10px;padding:9px 14px 0;
+  font-family:var(--cond);font-size:12px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--dim)}
+.hornbar b{font-family:var(--mono);color:var(--ink);letter-spacing:0}
+/* indicating lamp: a bulb behind a coloured lens, dark when de-energised */
+.hornlamp{width:11px;height:11px;border-radius:50%;background:#242a21;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.8),0 1px 0 rgba(255,255,255,.15);flex:none}
+.hornlamp.on{background:radial-gradient(circle at 38% 32%,#ffb0a2,var(--bad) 62%,#a8321f);
+  box-shadow:0 0 11px var(--bad),inset 0 1px 1px rgba(255,255,255,.4)}
+.hornlamp.rb{background:radial-gradient(circle at 38% 32%,#bdf2f3,var(--teal) 62%,#2b8f92);
+  box-shadow:0 0 11px var(--teal),inset 0 1px 1px rgba(255,255,255,.4)}
+@keyframes bl{50%{opacity:.3}}
+@media(prefers-reduced-motion:reduce){.tile.new,.tile.ringback.rb{animation:none}}
 
 /* trends */
 #trends{width:100%;height:250px;display:block;padding:0}
 
 /* controls */
 .ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
-.cg{padding:6px 16px 14px}
+.cg{padding:0 0 14px}
+.cg .field,.cg .btns,.cg .seg,.cg .icnote,.cg .iclist,.cg>div[id]{margin-left:15px;margin-right:15px}
 .field{margin-top:11px}
-.field label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);margin-bottom:6px}
-.field label b{font-family:var(--mono);color:var(--ink);font-weight:500}
+.field label{display:flex;justify-content:space-between;font-family:var(--cond);font-size:12px;
+  font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.field label b{font-family:var(--mono);color:var(--phosphor);font-weight:400;letter-spacing:0;
+  text-transform:none}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent;cursor:pointer;margin:0}
-input[type=range]::-webkit-slider-runnable-track{height:5px;background:#0b1017;border-radius:3px}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;margin-top:-5px;
-  background:var(--accent);border-radius:50%;border:2px solid var(--surface)}
-input[type=range]::-moz-range-track{height:5px;background:#0b1017;border-radius:3px}
-input[type=range]::-moz-range-thumb{width:15px;height:15px;background:var(--accent);border-radius:50%;border:2px solid var(--surface)}
-input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+input[type=range]::-webkit-slider-runnable-track{height:6px;background:#05070a;border-radius:1px;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.9)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:19px;margin-top:-7px;
+  background:linear-gradient(90deg,#9aa192,#cdd2c4 40%,#aab19f);
+  border-radius:2px;border:1px solid var(--panel-deep);
+  box-shadow:0 1px 2px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.5)}
+input[type=range]::-moz-range-track{height:6px;background:#05070a;border-radius:1px}
+input[type=range]::-moz-range-thumb{width:13px;height:19px;
+  background:linear-gradient(90deg,#9aa192,#cdd2c4 40%,#aab19f);
+  border-radius:2px;border:1px solid var(--panel-deep)}
+input[type=range]:focus-visible{outline:2px solid #1f3a5c;outline-offset:3px}
 .btns{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}
-button{background:var(--surface2);border:1px solid var(--line);color:var(--ink);cursor:pointer;
-  padding:9px 8px;border-radius:7px;font-family:var(--sans);font-size:12px;font-weight:500;
-  transition:all .12s}
-button:hover{background:#242e3a;border-color:#31404f}
-button:active{transform:translateY(1px)}
+/* Panel pushbutton: a moulded cap standing off the steel.  It has a real top
+   bevel and a real shadow underneath, and pressing it moves the cap down and
+   kills the shadow, because that is the whole point of a pushbutton. */
+button{background:linear-gradient(180deg,#cdd2c4 0%,#b4bab0 52%,#a3aa9c 100%);
+  border:1px solid var(--panel-deep);color:var(--legend);cursor:pointer;
+  padding:8px 9px;border-radius:2px;
+  font-family:var(--cond);font-size:12.5px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;
+  text-shadow:0 1px 0 rgba(255,255,255,.4);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 2px 0 #6d7568,0 3px 4px rgba(0,0,0,.3);
+  transition:box-shadow .07s,transform .07s,background .1s}
+button:hover{background:linear-gradient(180deg,#d6dbcd 0%,#bcc2b7 52%,#abb2a3 100%)}
+button:active{transform:translateY(2px);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.4),0 0 0 #6d7568}
 button.wide{grid-column:1/-1}
-button.bad{color:var(--bad);border-color:rgba(248,81,73,.3)}
-button.bad:hover{background:rgba(248,81,73,.12)}
-button.good{color:var(--good);border-color:rgba(63,185,80,.3)}
-button.good:hover{background:rgba(63,185,80,.12)}
-button[aria-pressed=true]{background:var(--accent);color:#04121f;border-color:var(--accent)}
-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* legend colour marks what the button DOES, as the engraving would */
+button.bad{color:#7a1c10}
+button.good{color:#16481a}
+/* selected: the cap stays down and the legend lights */
+button[aria-pressed=true]{
+  background:linear-gradient(180deg,#3c4438 0%,#2c3329 100%);
+  color:var(--phosphor);text-shadow:0 0 8px rgba(255,176,46,.6);
+  border-color:#20261d;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.65),0 1px 0 rgba(255,255,255,.18);
+  transform:translateY(1px)}
+button:focus-visible{outline:2px solid #1f3a5c;outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 1px 0 #6d7568}
 .seg{display:grid;grid-auto-flow:column;gap:6px;margin-top:11px}
-.note{color:var(--dim2);font-size:11.5px;line-height:1.6;padding:0 16px 14px}
-.note b{color:var(--dim)}
+.note{color:var(--dim2);font-family:var(--sans);font-size:11.5px;line-height:1.65;padding:9px 15px 14px}
+.note b{color:var(--dim);font-weight:600}
 
-.nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);
-  border-radius:var(--r);padding:4px}
-.nav button{flex:1;background:transparent;border:0;color:var(--dim);padding:10px 8px;
-  border-radius:7px;font-size:12.5px;font-weight:500}
-.nav button:hover{background:var(--surface2);color:var(--ink)}
-.nav button[aria-pressed=true]{background:var(--accent);color:#04121f;font-weight:600}
+.nav{display:flex;gap:6px;background:var(--panel-deep);border:1px solid #2d3329;
+  border-radius:var(--r);padding:6px;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.2)}
+.nav button{flex:1;padding:9px 8px;font-size:13px;letter-spacing:.11em}
 .grid1{display:grid;grid-template-columns:1fr;gap:12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
@@ -189,22 +332,125 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media(max-width:1280px){.grid3,.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
 .cv{width:100%;display:block;padding:4px 0}
-.card h2 span{color:var(--dim2);font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px}
+.card h2 span{margin-left:auto;font-family:var(--mono);font-size:10.5px;font-weight:400;
+  text-transform:none;letter-spacing:0;color:#414839;text-shadow:none}
 .bar{position:relative}
-.bar u{position:absolute;top:-2px;bottom:-2px;width:1px;background:rgba(255,255,255,.35);z-index:2}
-.m .a.bad{color:var(--bad)} .m .a.warn{color:var(--warn)}
-.sm{font-size:11px;color:var(--dim2)}
-#boardArea{display:flex;flex-direction:column;gap:12px}
+.bar u{position:absolute;top:-2px;bottom:-2px;width:1px;background:rgba(232,230,216,.5);z-index:2}
+.m .a.bad{color:var(--bad);text-shadow:0 0 10px rgba(224,80,58,.5)}
+.m .a.warn{color:var(--warn);text-shadow:0 0 10px rgba(240,169,42,.5)}
+.m .a.good{color:var(--good);text-shadow:0 0 10px rgba(95,190,98,.45)}
+.m .a.dimv{color:var(--dim2);text-shadow:none}
+.sm{font-family:var(--cond);font-size:11px;letter-spacing:.08em;color:var(--dim2)}
+#boardArea{display:flex;flex-direction:column;gap:13px}
+/* Seam between panel sections: a shadowed groove with a catch-light below,
+   the way two bolted sheets of steel actually meet. */
+.seam{height:0;border-top:1px solid var(--panel-deep);
+  box-shadow:0 1px 0 rgba(255,255,255,.28);margin:3px 0}
 .iclist{margin-top:10px;display:flex;flex-direction:column;gap:5px;max-height:170px;overflow-y:auto}
-.ic{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:6px;padding:7px 9px}
+.ic{display:flex;align-items:center;gap:8px;background:#080b09;border:1px solid rgba(0,0,0,.55);
+  border-radius:2px;padding:7px 9px;box-shadow:inset 0 1px 2px rgba(0,0,0,.6)}
 .ic .n{flex:1;min-width:0}
-.ic .n b{display:block;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic .n b{display:block;font-family:var(--cond);font-size:12.5px;font-weight:600;letter-spacing:.06em;
+  color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ic .n i{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--dim2)}
 .ic button{padding:5px 9px;font-size:11px;border-radius:5px}
-.icnote{font-size:11px;color:var(--dim2);margin-top:8px;line-height:1.5}
-footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;font-family:var(--mono)}
-#loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;
-  color:var(--dim);font-size:14px;z-index:50}
+.icnote{font-family:var(--sans);font-size:11px;color:var(--dim2);margin-top:8px;line-height:1.55}
+footer{color:#2b3027;font-family:var(--cond);font-size:11.5px;letter-spacing:.11em;
+  text-transform:uppercase;text-align:center;padding:2px 0 12px}
+#loading{position:fixed;inset:0;background:var(--panel);display:flex;align-items:center;
+  justify-content:center;color:var(--legend);font-family:var(--cond);font-size:15px;
+  letter-spacing:.14em;text-transform:uppercase;z-index:50}
+
+/* ================================================= annunciator sections
+   Windows are grouped the way a board is physically laid out, with an
+   engraved section legend over each group and a count of how many of that
+   section's windows are lit. */
+.annbank{display:flex;flex-direction:column;gap:2px;padding:9px 13px 13px;
+  background:var(--panel-deep);box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
+.annsec{display:flex;flex-direction:column}
+.annseclabel{display:flex;align-items:baseline;gap:8px;
+  font-family:var(--cond);font-size:10.5px;font-weight:600;letter-spacing:.17em;
+  text-transform:uppercase;color:#c3cbba;padding:9px 2px 5px;
+  border-bottom:1px solid rgba(255,255,255,.09)}
+.annseclabel b{margin-left:auto;font-family:var(--mono);font-size:9.5px;font-weight:400;
+  letter-spacing:0;color:#b3bcaa}
+.annseclabel b.lit{color:var(--phosphor)}
+.annsec .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));
+  gap:2px;padding:5px 0 6px;background:none;box-shadow:none}
+
+/* ============================================== control switches
+   Three separate pieces of information, kept separate: the LEGEND says what
+   the switch operates, the LAMPS say what the equipment is doing, and the
+   HANDLE says what the operator asked for.  They are allowed to disagree --
+   that disagreement is how you notice a pump did not start. */
+.swsec{margin-top:2px}
+.swseclabel{font-family:var(--cond);font-size:10.5px;font-weight:600;letter-spacing:.17em;
+  text-transform:uppercase;color:var(--dim);padding:11px 15px 6px;
+  border-bottom:1px solid rgba(232,230,216,.09);margin-bottom:9px}
+.swgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));
+  gap:9px;padding:0 15px 4px}
+
+.sw{background:linear-gradient(180deg,#9ba492 0%,#8d9784 100%);
+  border:1px solid var(--panel-deep);border-radius:2px;padding:6px 6px 5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 1px 2px rgba(0,0,0,.28);
+  display:flex;flex-direction:column;align-items:center;gap:4px}
+/* keylocked switches carry a brass escutcheon so you can see at a glance
+   which ones need a key */
+.sw.key{background:linear-gradient(180deg,#a89d7e 0%,#988d6e 100%)}
+.swlabel{font-family:var(--cond);font-size:10.5px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--legend);text-align:center;line-height:1.15;
+  text-shadow:0 1px 0 rgba(255,255,255,.34)}
+.swhead{display:flex;align-items:center;gap:5px}
+
+/* indicating lamp: a bulb behind a coloured lens.  Dark when de-energised --
+   a lamp that is always visible tells you nothing. */
+.lamp{width:9px;height:9px;border-radius:50%;flex:none;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.28)}
+.lamp.red{background:#4a2620}
+.lamp.grn{background:#1f3520}
+.lamp.red.lit{background:radial-gradient(circle at 36% 30%,#ffb5a6,#e0503a 60%,#a3311f);
+  box-shadow:0 0 8px rgba(224,80,58,.85),inset 0 1px 1px rgba(255,255,255,.45)}
+.lamp.grn.lit{background:radial-gradient(circle at 36% 30%,#b9f0bb,#5fbe62 60%,#2f7d33);
+  box-shadow:0 0 8px rgba(95,190,98,.8),inset 0 1px 1px rgba(255,255,255,.45)}
+
+/* the escutcheon and its J-handle.  Tapping it advances the handle. */
+.escut{width:38px;height:38px;border-radius:50%;padding:0;border:1px solid #5a6356;
+  background:radial-gradient(circle at 34% 26%,#e2e5da,#adb4a4 46%,#7d8676 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 1px 2px rgba(0,0,0,.35);
+  position:relative;cursor:pointer;flex:none;transition:none}
+.escut:hover{background:radial-gradient(circle at 34% 26%,#edefe6,#b6bdad 46%,#848d7d 100%)}
+.escut:active{box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
+.escut .handle{position:absolute;left:50%;top:50%;width:6px;height:17px;
+  margin:-15px 0 0 -3px;border-radius:3px 3px 1px 1px;transform-origin:50% 88%;
+  background:linear-gradient(90deg,#0e120d,#3c443a 42%,#171c15);
+  box-shadow:0 1px 2px rgba(0,0,0,.55),inset 1px 0 0 rgba(255,255,255,.18);
+  transition:transform .13s cubic-bezier(.3,1.5,.5,1)}
+.escut::after{content:'';position:absolute;left:50%;top:50%;width:7px;height:7px;
+  margin:-3.5px 0 0 -3.5px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#6a7264,#333a30);
+  box-shadow:inset 0 -1px 1px rgba(0,0,0,.5)}
+
+/* engraved position legends; the selected one is filled in */
+.swpos{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.swpos .swp{font-family:var(--cond);font-size:8.5px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;padding:2px 4px;border-radius:1px;
+  background:rgba(20,24,15,.11);border:1px solid rgba(20,24,15,.2);
+  color:#1e2319;box-shadow:none;text-shadow:none;min-width:0}
+.swpos .swp:hover{background:rgba(20,24,15,.2)}
+.swpos .swp:active{transform:none}
+.swpos .swp.sel{background:#171c14;border-color:#0c0f09;color:var(--phosphor);
+  text-shadow:0 0 6px rgba(255,176,46,.55)}
+.swnote{font-family:var(--mono);font-size:9px;color:#262b21;text-align:center;
+  min-height:11px;line-height:1.2}
+
+@media(max-width:620px){
+  .swgrid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px;padding:0 11px 4px}
+  .escut{width:34px;height:34px}
+  .swlabel{font-size:10px}
+  .annbank{padding:7px 10px 10px}
+  .annseclabel{font-size:10px;letter-spacing:.13em}
+}
+@media(prefers-reduced-motion:reduce){.escut .handle{transition:none}}
 </style>
 </head>
 <body>
@@ -229,11 +475,15 @@ footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;fon
 <div class="nav" id="nav">
   <button data-b="overview" aria-pressed="true">Overview</button>
   <button data-b="reactor" aria-pressed="false">Reactor</button>
+  <button data-b="startup" aria-pressed="false">Startup</button>
   <button data-b="rcs" aria-pressed="false">Reactor coolant</button>
   <button data-b="secondary" aria-pressed="false">Steam &amp; feedwater</button>
+  <button data-b="safeguards" aria-pressed="false">Safeguards</button>
+  <button data-b="cooling" aria-pressed="false">Cooling water</button>
   <button data-b="electrical" aria-pressed="false">Electrical</button>
 </div>
 
+<div class="seam"></div>
 <div id="boardArea"></div>
 
 <div class="card">
@@ -245,8 +495,9 @@ footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;fon
     <button id="bAckA" style="padding:6px 12px;font-size:11.5px">Acknowledge</button>
     <button id="bResetA" style="padding:6px 12px;font-size:11.5px">Reset</button>
     <button id="bLampTest" style="padding:6px 12px;font-size:11.5px">Lamp test</button>
+    <button id="bLitOnly" aria-pressed="false" style="padding:6px 12px;font-size:11.5px">Lit only</button>
   </div>
-  <div class="tiles" id="tiles"></div>
+  <div id="tiles" class="annbank"></div>
 </div>
 
 <div class="card" id="trendCard">
@@ -254,14 +505,15 @@ footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;fon
   <canvas id="trends" class="cv" style="height:250px"></canvas>
 </div>
 
+<div class="seam"></div>
 <div class="ctrls">
-  <div class="card cg"><h2 style="padding-left:0">Load</h2>
+  <div class="card cg"><h2>Load</h2>
     <div class="field"><label>Turbine load setpoint <b id="oLoad">100%</b></label>
       <input type="range" id="sLoad" min="0" max="100" step="1" value="100"></div>
     <div class="field"><label>Ramp rate <b id="oRamp">5 %/min</b></label>
       <input type="range" id="sRamp" min="1" max="20" step="1" value="5"></div>
   </div>
-  <div class="card cg"><h2 style="padding-left:0">Reactivity</h2>
+  <div class="card cg"><h2>Reactivity</h2>
     <div class="seg"><button id="bRodAuto" aria-pressed="true">Rods auto</button>
       <button id="bRodMan" aria-pressed="false">Manual</button></div>
     <div class="btns"><button id="bRodOut">Withdraw ▲</button><button id="bRodIn">Insert ▼</button>
@@ -269,7 +521,7 @@ footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;fon
     <div class="field"><label>Boron <b id="oPpm">— ppm</b></label>
       <div class="icnote" id="oPpmRate">CVCS idle</div></div>
   </div>
-  <div class="card cg"><h2 style="padding-left:0">Cooldown &amp; RHR</h2>
+  <div class="card cg"><h2>Cooldown &amp; RHR</h2>
     <div class="field"><label>Steam dump pressure <b id="oDumpSet">— psia</b></label>
       <input type="range" id="sDumpSet" min="45" max="1050" step="5" value="1005"></div>
     <div class="field"><label>Pressurizer setpoint <b id="oPzrSet">— psig</b></label>
@@ -279,7 +531,7 @@ footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;fon
       <button class="good" id="bRHR">Place RHR in service</button></div>
     <div class="icnote" id="oRHR"></div>
   </div>
-  <div class="card cg"><h2 style="padding-left:0">Events</h2>
+  <div class="card cg"><h2>Events</h2>
     <div class="btns">
       <button class="bad" id="bScram">Reactor trip</button>
       <button class="bad" id="bTurb">Turbine trip</button>
@@ -293,7 +545,7 @@ footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;fon
     <div class="icnote" id="oSI"></div>
     <div class="icnote" id="oCnmt"></div>
   </div>
-  <div class="card cg"><h2 style="padding-left:0">Initial conditions</h2>
+  <div class="card cg"><h2>Initial conditions</h2>
     <div class="btns">
       <button class="good wide" id="bSnap">Snapshot now</button>
       <button id="bExport">Export file</button>
@@ -307,7 +559,7 @@ footer{color:var(--dim2);font-size:11px;text-align:center;padding:4px 0 12px;fon
       <button id="bStd40">Standard: 40% power</button>
     </div>
   </div>
-  <div class="card cg"><h2 style="padding-left:0">Simulation</h2>
+  <div class="card cg"><h2>Simulation</h2>
     <div class="seg"><button id="bS1" aria-pressed="true">1×</button>
       <button id="bS10" aria-pressed="false">10×</button>
       <button id="bS60" aria-pressed="false">60×</button>
@@ -329,7 +581,11 @@ import * as EL from './lib/elec.js';
 import * as B from './ui/boards.js';
 import * as IC from './lib/ic.js';
 import * as RH from './lib/rhr.js';
+import * as CW from './lib/ccw.js';
 import * as SIM from './lib/si.js';
+import * as SU from './lib/startup.js';
+import * as RPS from './lib/rps.js';
+import * as CT from './ui/controls.js';
 import * as AL from './ui/alarms.js';
 import * as AN from './ui/annun.js';
 import { F, clamp, el, fitCanvas, stripChart } from './ui/widgets.js';
@@ -339,7 +595,6 @@ PLANT.initPlant(PL, 1.0, 900);
 PL.rodAuto = true;
 
 let board = 'overview', paused = false, speed = 1, autoSpeed = false, simT = 0;
-const A = AL.makeAlarmState();
 const ANN = AN.makeEngine(AL.annunPoints());
 
 // --- audible horn, Web Audio.  Guarded: some hosts block audio entirely.
@@ -380,7 +635,6 @@ function renderICs(){
 function restoreIC(ic){
   IC.restore(PL, ic);
   simT = 0; TR.i = 0; TR.full = false;
-  A.first = -1; A.st.forEach(s => { s.on = false; s.ack = false; });
   el('sLoad').value = Math.round(PL.sec.loadSet*100);
   el('oLoad').textContent = Math.round(PL.sec.loadSet*100) + '%';
   el('sRamp').value = Math.round(PL.sc.rampPctPerMin);
@@ -414,10 +668,109 @@ const series = k => {
   return out;
 };
 
+// ---- annunciator -------------------------------------------------
+// 233 windows.  They are grouped into the sections a real board is laid out
+// in, because a flat wall of windows cannot be scanned and the section label
+// is half of what tells you where to look.  Rebuilt only when something
+// actually changed -- the sequence engine runs every frame regardless, but
+// there is no reason to hand the browser 20 kB of identical markup 6 times a
+// second.
+const SECTIONS = AL.sections();
+let showLitOnly = false;
+
+/**
+ * The wall is BUILT ONCE and thereafter only touched where it changed.
+ *
+ * What this replaced regenerated every window's markup into innerHTML on any
+ * change, and the change signature included the flash phase -- so all 233
+ * windows were re-parsed several times a second purely to blink, while the
+ * CSS animation that actually does the blinking was restarted from zero each
+ * time and never completed a cycle.  Flashing is CSS's job; the signature has
+ * no business knowing about it.
+ *
+ * Fixed positions matter for their own reason.  A window on a real board never
+ * moves, because an operator learns where CNMT PRESS HI-HI *is* and finds it
+ * by position before reading it.  Rebuilding the grid from the lit set moved
+ * every window every time something alarmed, which is precisely the moment
+ * that ability is worth most.  'Lit only' now dims the unlit windows in place
+ * instead of reflowing them out.
+ */
+const TILE = [];                       // index -> element, parallel to ANN.points
+const SECEL = new Map();               // section -> { count, n }
+
+function buildWall() {
+  const frag = document.createDocumentFragment();
+  for (const sec of SECTIONS) {
+    const idx = ANN.points.map((p, i) => i).filter(i => ANN.points[i].section === sec);
+    const bay = document.createElement('div');
+    bay.className = 'annsec';
+    const lab = document.createElement('div');
+    lab.className = 'annseclabel';
+    lab.textContent = sec;
+    const cnt = document.createElement('b');
+    cnt.textContent = idx.length;
+    lab.appendChild(cnt);
+    const grid = document.createElement('div');
+    grid.className = 'tiles';
+    for (const i of idx) {
+      const p = ANN.points[i];
+      const t = document.createElement('div');
+      t.className = 'tile';
+      t.title = p.name;
+      // the legend is engraved on two or three short lines, as a real window is
+      for (const l of AL.legendLines(p.name)) {
+        const sp = document.createElement('span');
+        sp.textContent = l;
+        t.appendChild(sp);
+      }
+      grid.appendChild(t);
+      TILE[i] = t;
+    }
+    bay.appendChild(lab); bay.appendChild(grid);
+    frag.appendChild(bay);
+    SECEL.set(sec, { count: cnt, n: idx.length, lit: -1 });
+  }
+  el('tiles').innerHTML = '';
+  el('tiles').appendChild(frag);
+}
+
+function renderTiles() {
+  const litBySec = new Map();
+  for (let i = 0; i < ANN.points.length; i++) {
+    const r = AN.render(ANN, i, 0);        // nowSec unused: flashing is CSS
+    const p = ANN.points[i], t = TILE[i];
+    const cls = r.lit
+      ? 'tile on' + (r.cls ? ' ' + r.cls : '')
+        + (r.flash ? (r.cls === 'ringback' ? ' rb' : ' new') : '')
+        + (r.first ? ' first' : '')
+      : 'tile' + (showLitOnly ? ' muted' : '');
+    if (t.className !== cls) t.className = cls;   // no-op writes still cost layout
+    const tip = p.name + (r.label ? ' \u2014 ' + r.label : '');
+    if (t.title !== tip) t.title = tip;
+    if (r.lit) litBySec.set(p.section, (litBySec.get(p.section) || 0) + 1);
+  }
+  for (const [sec, s] of SECEL) {
+    const lit = litBySec.get(sec) || 0;
+    if (lit === s.lit) continue;
+    s.lit = lit;
+    s.count.textContent = lit ? lit + ' of ' + s.n : s.n;
+    s.count.className = lit ? 'lit' : '';
+  }
+}
+
 // ---- render -------------------------------------------------------
-const BOARDS = { overview:B.overview, reactor:B.reactor, rcs:B.rcs,
-                 secondary:B.secondary, electrical:B.electrical };
-const DRAW = { reactor:B.drawReactorCanvases, rcs:B.drawRCSCanvases,
+const BOARDS = { overview:B.overview, reactor:B.reactor, startup:B.startup, rcs:B.rcs,
+                 secondary:B.secondary, safeguards:B.safeguards, cooling:B.cooling,
+                 electrical:B.electrical };
+// Control functions the switches need.  Passed in rather than imported by
+// controls.js so the switch table stays a description of the board and does
+// not become a second place that knows how the plant is wired.
+const SWAPI = { closeGenBreaker: EL.closeGenBreaker, loseOffsite: EL.loseOffsite,
+                restoreOffsite: EL.restoreOffsite, setChannel: RPS.setChannel,
+                blockSI: SIM.blockSI, placeInService: RH.placeInService };
+CT.wireCCW({ loseCCW: CW.loseCCW, restoreCCW: CW.restoreCCW });
+const DRAW = { reactor:B.drawReactorCanvases, startup:B.drawStartupCanvases,
+               rcs:B.drawRCSCanvases,
                secondary:B.drawSecondaryCanvases, electrical:B.drawElecCanvases };
 let lastHTML = 0;
 function render(now) {
@@ -433,10 +786,12 @@ function render(now) {
 
   const b = el('banner');
   if (PL.trip) { b.className='on';
-    b.innerHTML = `REACTOR TRIP — ${PL.tripFirst}<span>decay heat ${F(PL.k.Pdecay*100,2)}% · subcooling ${F(S.subcooling,0)} °F · ${AL.activeCount(A)} alarms</span>`; }
+    b.innerHTML = `REACTOR TRIP — ${PL.tripFirst}<span>decay heat ${F(PL.k.Pdecay*100,2)}% · subcooling ${F(S.subcooling,0)} °F · ${AN.counts(ANN).active} alarms</span>`; }
   else b.className='';
 
-  AL.updateAlarms(A, PL);
+  // ONE alarm engine.  updateAlarms() ran a second, simpler copy of the same
+  // 233 predicates every frame -- 28,000 evaluations a second -- so that the
+  // trip banner could show a count the ISA engine already had.
   AN.step(ANN, i => AL.readPoint(PL, i), 1 / 60);
   if (ANN.horn) hornOn(ANN.hornKind); else hornOff();
   const hl = el('hornLamp');
@@ -450,16 +805,7 @@ function render(now) {
   if (now - lastHTML > 160) {
     lastHTML = now;
     el('boardArea').innerHTML = BOARDS[board](PL);
-    const nowS = performance.now() / 1000;
-    el('tiles').innerHTML = ANN.points.map((p, i) => {
-      const r = AN.render(ANN, i, nowS);
-      if (!r.lit) return `<div class="tile">${p.name}</div>`;
-      const cls = 'tile on' + (r.cls ? ' ' + r.cls : '')
-        + (r.flash ? (r.cls === 'ringback' ? ' rb' : ' new') : '')
-        + (r.first ? ' first' : '');
-      return `<div class="${cls}">${p.name}`
-        + (r.label ? `<span class="tag">${r.label}</span>` : '') + '</div>';
-    }).join('');
+    renderTiles();
     const cc = AN.counts(ANN);
     el('alarmSummary').textContent =
       `${cc.alarm} new · ${cc.ack} acknowledged` + (cc.ring ? ` · ${cc.ring} ringback` : '')
@@ -510,6 +856,37 @@ function render(now) {
 }
 
 // ---- controls -----------------------------------------------------
+// The board HTML is rebuilt every 160 ms, so buttons living on a board cannot
+// carry their own listeners -- they would be discarded on the next render.
+// Delegate from the container, which persists.
+el('boardArea').addEventListener('click', e => {
+  const s = e.target.closest('[data-sw]');
+  if (s) {
+    const raw = s.dataset.pos;
+    CT.actuate(PL, +s.dataset.sw, raw === 'next' ? 'next' : +raw, SWAPI);
+    lastHTML = 0;
+    return;
+  }
+  const t = e.target.closest('[data-su]'); if (!t) return;
+  const act = t.dataset.su;
+  if (act === 'base')  SU.takeBaseline(PL.su, PL.ppm, PL.banks.ctrlDemand);
+  if (act === 'point') SU.takePoint(PL.su, PL.ppm, PL.banks.ctrlDemand);
+  if (act === 'clear') SU.clearPoints(PL.su);
+  if (act === 'csv') {
+    const rows = [['n','ppm','rod_steps','cps','inv_M']]
+      .concat(PL.su.points.map((p, i) => [i + 1, p.ppm.toFixed(1), p.rods.toFixed(0),
+                                          p.cps.toFixed(1), p.invM.toFixed(5)]));
+    const csv = rows.map(r => r.join(',')).join('\n');
+    if (navigator.clipboard) navigator.clipboard.writeText(csv).catch(() => {});
+    t.textContent = 'Copied';
+    setTimeout(() => { t.textContent = 'Copy data'; }, 1200);
+  }
+  lastHTML = 0;
+});
+el('bLitOnly').onclick = () => {
+  showLitOnly = !showLitOnly;
+  el('bLitOnly').setAttribute('aria-pressed', String(showLitOnly));
+};
 el('nav').addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
   board = t.dataset.b;
@@ -556,9 +933,9 @@ el('bLOFW').onclick=()=>{ PL.sec.mfpOn=[false,false]; };
 el('bRCP').onclick=()=>{ PL.E.rcpOn[1]=false; PL.S.pumpOn[1]=false; };
 el('bPORV').onclick=()=>{ PL.z.porvStuck[0]=true; };
 el('bPause').onclick=()=>{ paused=!paused; el('bPause').textContent=paused?'Run':'Pause'; };
-el('bAck').onclick=()=>{ AL.ackAll(A); AN.acknowledge(ANN); };
+el('bAck').onclick=()=>{ AN.acknowledge(ANN); };
 el('bSilence').onclick=()=>AN.silence(ANN);
-el('bAckA').onclick=()=>{ AL.ackAll(A); AN.acknowledge(ANN); };
+el('bAckA').onclick=()=>{ AN.acknowledge(ANN); };
 el('bResetA').onclick=()=>AN.reset(ANN);
 el('bLampTest').onclick=()=>{ AN.setLampTest(ANN,!ANN.lampTest); lastHTML=0; };
 el('bSnap').onclick=()=>{ IC.save(LIB, icName(), PL, {}); renderICs(); };
@@ -594,7 +971,7 @@ el('bStd70').onclick=()=>standardIC(0.7,'70');
 el('bStd40').onclick=()=>standardIC(0.4,'40');
 el('bReset').onclick=()=>{
   PL=PLANT.makePlant({life:'MOL'}); PLANT.initPlant(PL,1.0,900); PL.rodAuto=true;
-  simT=0; TR.i=0; TR.full=false; A.first=-1; A.st.forEach(s=>{s.on=false;s.ack=false;});
+  simT=0; TR.i=0; TR.full=false;
   el('sLoad').value=100; el('oLoad').textContent='100%';
   paused=false; el('bPause').textContent='Pause'; lastHTML=0; };
 
@@ -606,9 +983,9 @@ el('modelnote').innerHTML =
  'and voided states. Steam generators carry riser void as a state, so shrink and swell are real '+
  'non-minimum-phase responses. W-3 DNBR and the actual OTΔT / OPΔT trip functions. The reactor '+
  'coolant pumps are electrical loads, so losing the grid drops the primary onto natural circulation. '+
- '<b>Limits:</b> lumped-parameter, no axial nodes, no RHR, boration path or safety injection yet. '+
- 'Initialisation converges from about 35% to 105% load; lower power needs the RHR and '+
- 'boration systems that are not built yet. Not a substitute for a licensed simulator.';
+ '<b>Limits:</b> lumped-parameter, one node per component, no axial power shape and no xenon '+
+ 'oscillation. Full-power initialisation converges from about 22% to 105% load; below that, start '+
+ 'from hot standby and take the plant critical. Not a substitute for a licensed simulator.';
 
 // ---- loop ---------------------------------------------------------
 let last=performance.now(), acc=0, tAcc=0;
@@ -625,6 +1002,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 el('buildTag').textContent = '\u00b7 build ' + BUILD;
+buildWall();
 renderICs();
 el('loading').style.display='none';
 el('app').style.visibility='visible';

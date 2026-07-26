@@ -1,4 +1,4 @@
-import * as P from './lib/plant.js';
+import * as P from '../lib/plant.js';
 const F=(x,n=1)=>Number(x).toFixed(n);
 const hdr='   t(s)  power%   Tavg   Tref   Ppzr   pzr%   Psec   SGlvl   Wstm   MWe   dump%  rods  ppm';
 const row=PL=>{const s=P.snapshot(PL);

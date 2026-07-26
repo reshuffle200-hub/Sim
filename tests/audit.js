@@ -1,9 +1,9 @@
-import * as ST from './lib/steam.js';
-import * as K from './lib/kinetics.js';
-import * as RX from './lib/reactivity.js';
-import * as FU from './lib/fuel.js';
-import * as R from './lib/rcs.js';
-import * as Z from './lib/pzr.js';
+import * as ST from '../lib/steam.js';
+import * as K from '../lib/kinetics.js';
+import * as RX from '../lib/reactivity.js';
+import * as FU from '../lib/fuel.js';
+import * as R from '../lib/rcs.js';
+import * as Z from '../lib/pzr.js';
 const F=(x,n=3)=>Number(x).toFixed(n);
 let FAIL=0; const chk=(ok,msg)=>{ if(!ok){FAIL++;console.log('  ** FAIL: '+msg);} };
 

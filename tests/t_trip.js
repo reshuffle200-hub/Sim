@@ -1,4 +1,4 @@
-import * as P from './lib/plant.js';
+import * as P from '../lib/plant.js';
 const F=(x,n=1)=>Number(x).toFixed(n);
 console.log('=== turbine trip from 100% ===');
 let PL=P.makePlant({life:'MOL'});

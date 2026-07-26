@@ -33,6 +33,17 @@ export const ST = {
   CLEARED:  'cleared'      // process returned, waiting on manual reset (M)
 };
 
+/**
+ * First-out is latched per BOARD SECTION, not per coarse group.  A board has
+ * one first-out relay per annunciator bay, so a feedwater upset and an
+ * electrical upset each keep their own initiating window -- and so do steam
+ * generators A, B and C, which is the whole point of de-aggregating them.
+ * Keying this off `group` collapsed all fourteen bays onto five latches and
+ * threw away the distinction the windows exist to make.  Points without a
+ * section fall back to group so the engine still works standalone.
+ */
+const foKey = p => p.section || p.group;
+
 export function makeEngine(points) {
   return {
     points,
@@ -66,8 +77,9 @@ export function step(E, read, dt) {
           s.state = ST.ALARM; s.seq = ++E.seqCounter; s.t = 0;
           s.everAlarmed = true;
           E.silenced = false;                       // REFLASH: a new alarm
-          if (p.firstOut && E.firstOutGroup[p.group] === undefined)
-            E.firstOutGroup[p.group] = i;
+          const fo = foKey(p);
+          if (p.firstOut && E.firstOutGroup[fo] === undefined)
+            E.firstOutGroup[fo] = i;
         }
         break;
 
@@ -99,10 +111,10 @@ export function step(E, read, dt) {
     }
   }
 
-  // clear first-out for a group once nothing in it is alarming
+  // clear first-out for a section once nothing in it is alarming
   for (const g in E.firstOutGroup) {
     const anyActive = E.points.some((p, i) =>
-      p.group === g && E.st[i].state !== ST.NORMAL && E.st[i].state !== ST.CLEARED);
+      foKey(p) === g && E.st[i].state !== ST.NORMAL && E.st[i].state !== ST.CLEARED);
     if (!anyActive) delete E.firstOutGroup[g];
   }
 
@@ -137,7 +149,7 @@ export function setLampTest(E, on) { E.lampTest = on; }
 export function render(E, i, nowSec) {
   const p = E.points[i], s = E.st[i];
   if (E.lampTest) return { lit: true, flash: false, cls: p.cls || '', first: false };
-  const isFirst = E.firstOutGroup[p.group] === i;
+  const isFirst = E.firstOutGroup[foKey(p)] === i;
   switch (s.state) {
     case ST.ALARM:
       return { lit: true, flash: (nowSec * 2.2) % 1 < 0.5, cls: p.cls || '', first: isFirst, label: 'NEW' };

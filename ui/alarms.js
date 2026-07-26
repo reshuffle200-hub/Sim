@@ -5,61 +5,334 @@
 //  The FIRST alarm of a group latches separately and stays marked, because
 //  after a trip the initiating window is the only one worth reading -- the
 //  other twenty are consequences.
+//
+//  WHY THERE ARE SO MANY WINDOWS.  A real board does not have one SG LEVEL LOW
+//  window; it has one per steam generator, because "which one" is the first
+//  question an operator asks and a shared window cannot answer it.  The same
+//  goes for loops, safeguards trains, diesels, buses and protection channels.
+//  Every window below reads a distinct piece of plant state -- none is
+//  decorative, and de-aggregating is the whole reason the count is high.
+//
+//  Windows are grouped into SECTIONS matching how a board is physically laid
+//  out, and first-out latches per section, so a feedwater upset and an
+//  electrical upset each keep their own initiating window.
 // ======================================================================
+
+import { RPS_PARAMS } from '../lib/rps.js';
+
+const LOOP = ['A', 'B', 'C'];
+const AB = ['A', 'B'];
+
+/** Short window legends for the protection functions. */
+const RPS_SHORT = {
+  pwrHi:'PWR RANGE FLUX', otdt:'OVERTEMP dT', opdt:'OVERPOWER dT',
+  pzrHi:'PZR PRESS HI', pzrLo:'PZR PRESS LO', pzrLvl:'PZR LEVEL HI',
+  sgLoLo:'SG LEVEL LO-LO', flowLo:'RCS FLOW LO', cnmtHi:'CNMT PRESS HI',
+  slLo:'STM LINE PRESS LO', turbTrip:'TURBINE TRIP', uv:'BUS UNDERVOLT',
+  cnmtHiHi:'CNMT PRESS HI-HI'
+};
+
+/** Build one window per item of a family: per loop, per train, per channel. */
+const per = (items, fn) => items.flatMap(fn);
+
 export const ALARMS = [
-  ['REACTOR TRIP',     'all', p => p.trip, 'bad'],
-  ['TURBINE TRIP',     'all', p => p.sec.tripped, 'bad'],
-  ['HIGH FLUX',        'rx',  p => p.k.P > 1.08, ''],
-  ['OT dT',            'rx',  p => p.f.otdtTrip, 'bad'],
-  ['OP dT',            'rx',  p => p.f.opdtTrip, 'bad'],
-  ['LOW DNBR',         'rx',  p => (p.dnbr ?? 9) < 1.5, 'bad'],
-  ['Tavg DEVIATION',   'rx',  p => Math.abs(p.S.Tavg - p.Tref) > 4, ''],
-  ['ROD BOTTOM',       'rx',  p => p.banks.ctrlDemand < 5, ''],
-  ['PZR PRESS HIGH',   'rcs', p => p.S.P - 14.7 > p.zp.pHiAlarm, ''],
-  ['PZR PRESS LOW',    'rcs', p => p.S.P - 14.7 < p.zp.pLoAlarm, ''],
-  ['PZR LEVEL HIGH',   'rcs', p => p.S.pzrLevel * 100 > 70, ''],
-  ['PZR LEVEL LOW',    'rcs', p => p.S.pzrLevel * 100 < 25, ''],
-  ['PZR PORV OPEN',    'rcs', p => p.z.porvOpen.some(Boolean), 'bad'],
-  ['PZR SAFETY OPEN',  'rcs', p => p.z.safetyOpen.some(Boolean), 'bad'],
-  ['LOW SUBCOOLING',   'rcs', p => p.S.subcooling < 25, 'bad'],
-  ['RCS VOID',         'rcs', p => p.S.voidMax > 0.01, 'bad'],
-  ['LOW RCS FLOW',     'rcs', p => p.S.W.some(w => w < 0.9 * p.rp.Wrated), ''],
-  ['RCP TRIPPED',      'rcs', p => p.E.rcpOn.some(x => !x), ''],
-  ['PRT RUPTURED',     'rcs', p => p.z.prtRuptured, 'bad'],
-  ['SG LEVEL LO-LO',   'sec', p => p.sgs.some(s => s.lvlNR < p.sp.lvlLoLo), 'bad'],
-  ['SG LEVEL LOW',     'sec', p => p.sgs.some(s => s.lvlNR < p.sp.lvlLo), ''],
-  ['SG LEVEL HIGH',    'sec', p => p.sgs.some(s => s.lvlNR > p.sp.lvlHi), ''],
-  ['SG SAFETY OPEN',   'sec', p => p.sgs.some(s => s.nSafetyOpen > 0), 'bad'],
-  ['SG ARV OPEN',      'sec', p => p.sgs.some(s => s.arvOpen), ''],
-  ['STEAM DUMPS OPEN', 'sec', p => p.sec.dumpPos > 0.02, ''],
-  ['FEED PUMP TRIP',   'sec', p => p.sec.mfpOn.some(x => !x), ''],
-  ['AFW ACTUATED',     'sec', p => p.sec.afwOn, ''],
-  ['SG TUBES UNCOVERED','sec',p => p.sgs.some(s => s.tubeUncovered), 'bad'],
-  ['SAFETY INJECTION', 'rcs', p => p.si && p.si.actuated, 'bad'],
-  ['ACCUMULATORS FIRING','rcs',p => p.si && p.si.acc.some(a => a.discharging), 'bad'],
-  ['RWST LEVEL LOW',   'rcs', p => p.si && p.si.rwstPct < p.sip.rwstLoPct, 'bad'],
-  ['ON SUMP RECIRC',   'rcs', p => p.si && p.si.suction === 'sump', ''],
-  ['RCS LEAK / BREAK', 'rcs', p => (p.breakIn2 || 0) > 0, 'bad'],
-  ['RHR IN SERVICE',   'rcs', p => p.rhr && p.rhr.inService, 'ok'],
-  ['BORATING',         'rx',  p => p.borateGpm > 0, ''],
-  ['DILUTING',         'rx',  p => p.diluteGpm > 0, ''],
-  ['CNMT PRESS HIGH',  'rcs', p => p.cnmt && p.cnmt.psig > p.cnp.isolPsig, 'bad'],
-  ['CNMT ISOLATED',    'rcs', p => p.cnmt && p.cnmt.isolated, 'bad'],
-  ['CNMT SPRAY',       'rcs', p => p.cnmt && p.cnmt.sprayGpm > 0, 'bad'],
-  ['CNMT NEAR DESIGN', 'rcs', p => p.cnmt && p.cnmt.psig > p.cnp.designPsig * 0.85, 'bad'],
-  ['PARTIAL TRIP',     'rx',  p => p.rps && p.rps.alarms.partialTrip, ''],
-  ['CHANNEL BYPASSED',  'rx',  p => p.rps && p.rps.alarms.anyBypassed, ''],
-  ['CHANNEL FAILED',    'rx',  p => p.rps && p.rps.alarms.anyFailed, 'bad'],
-  ['P-11 BLOCK',        'rcs', p => p.rps && p.rps.p11Block, ''],
-  ['CNMT ISOLATION A',  'rcs', p => p.rps && p.rps.esf.isolA.actuated, 'bad'],
-  ['MSIV CLOSURE',      'sec', p => p.rps && p.rps.esf.msiv.actuated, 'bad'],
-  ['FEEDWATER ISOLATION','sec',p => p.rps && p.rps.esf.fwIsol.actuated, 'bad'],
-  ['LOSS OF OFFSITE',  'el',  p => !p.E.gridAvail, 'bad'],
-  ['GENERATOR TRIP',   'el',  p => p.E.tripped, 'bad'],
-  ['AUX BUS UNDERVOLT','el',  p => p.E.Vaux[0] < 0.9, 'bad'],
-  ['SAFETY BUS ON DG', 'el',  p => p.E.safetyFrom.some(s => s === 'edg'), ''],
-  ['DG RUNNING',       'el',  p => p.E.edg.some(e => e.running), 'ok'],
-  ['DG FAILED',        'el',  p => p.E.edg.some(e => e.tripped), 'bad']
+  // ---------------------------------------------------------- reactor / RPS
+  ['REACTOR TRIP',        'all', p => p.trip, 'bad', 'REACTOR & PROTECTION'],
+  ['TURBINE TRIP',        'all', p => p.sec.tripped, 'bad', 'REACTOR & PROTECTION'],
+  ['RPS TRIP BYPASSED',   'rx',  p => p.rps && p.rps.tripBypassed, '', 'REACTOR & PROTECTION'],
+  ['HIGH FLUX',           'rx',  p => p.k.P > 1.08, 'bad', 'REACTOR & PROTECTION'],
+  ['OT dT',               'rx',  p => p.f.otdtTrip, 'bad', 'REACTOR & PROTECTION'],
+  ['OP dT',               'rx',  p => p.f.opdtTrip, 'bad', 'REACTOR & PROTECTION'],
+  ['OT dT MARGIN LOW',    'rx',  p => (p.f.otdtMargin ?? 99) < 5, '', 'REACTOR & PROTECTION'],
+  ['OP dT MARGIN LOW',    'rx',  p => (p.f.opdtMargin ?? 99) < 5, '', 'REACTOR & PROTECTION'],
+  ['LOW DNBR',            'rx',  p => (p.dnbr ?? 9) < 1.5, 'bad', 'REACTOR & PROTECTION'],
+  ['DNBR AT LIMIT',       'rx',  p => (p.dnbr ?? 9) < 1.3, 'bad', 'REACTOR & PROTECTION'],
+  ['Tavg DEVIATION',      'rx',  p => Math.abs(p.S.Tavg - p.Tref) > 4, '', 'REACTOR & PROTECTION'],
+  ['Tavg HIGH',           'rx',  p => p.S.Tavg > 590, '', 'REACTOR & PROTECTION'],
+  ['ROD BOTTOM',          'rx',  p => p.banks.ctrlDemand < 5, '', 'REACTOR & PROTECTION'],
+  ['ROD BANK HIGH LIMIT', 'rx',  p => p.banks.ctrlDemand > 520, '', 'REACTOR & PROTECTION'],
+  ['RODS IN MANUAL',      'rx',  p => !p.rodAuto, '', 'REACTOR & PROTECTION'],
+  ['P-11 BLOCK',          'rcs', p => p.rps && p.rps.p11Block, '', 'REACTOR & PROTECTION'],
+  ['PARTIAL TRIP',        'rx',  p => p.rps && p.rps.alarms && p.rps.alarms.partialTrip, '', 'REACTOR & PROTECTION'],
+  ['CHANNEL BYPASSED',    'rx',  p => p.rps && p.rps.alarms && p.rps.alarms.anyBypassed, '', 'REACTOR & PROTECTION'],
+  ['CHANNEL FAILED',      'rx',  p => p.rps && p.rps.alarms && p.rps.alarms.anyFailed, 'bad', 'REACTOR & PROTECTION'],
+
+  // ---------------------------------------------- protection channels (bistables)
+  //  A real board carries a window per protection FUNCTION for the partial
+  //  trip and another for channel status, because "one channel is calling for
+  //  a trip" and "one channel is out of service" are the two things that
+  //  change what the coincidence logic will do next.  Thirteen functions, each
+  //  with three or four independent channels, is where a genuine board gets
+  //  most of its window count.
+  ...per(RPS_PARAMS, spec => {
+    const nm = RPS_SHORT[spec.id] || spec.name;
+    return [
+      [`${nm} PART TRIP`, 'rx',
+        p => { const q = p.rps && p.rps.params[spec.id];
+               return !!q && q.nTripped > 0 && !q.coincidence; },
+        '', 'PROTECTION CHANNELS'],
+      [`${nm} CH INOP`, 'rx',
+        p => { const q = p.rps && p.rps.params[spec.id];
+               return !!q && q.ch.some(c => c.state !== 'normal'); },
+        '', 'PROTECTION CHANNELS']
+    ];
+  }),
+
+  // -------------------------------------------------- nuclear instrumentation
+  ['SR HIGH FLUX',        'rx',  p => p.su && p.su.alarms.srHi, '', 'NUCLEAR INSTRUMENTATION'],
+  ['SR OFF SCALE',        'rx',  p => p.su && p.su.alarms.offScale, '', 'NUCLEAR INSTRUMENTATION'],
+  ['STARTUP RATE HIGH',   'rx',  p => p.su && p.su.alarms.surHi, '', 'NUCLEAR INSTRUMENTATION'],
+  ['STARTUP RATE TRIP',   'rx',  p => p.su && p.su.alarms.surTrip, 'bad', 'NUCLEAR INSTRUMENTATION'],
+  ['APPROACHING CRITICAL','rx',  p => p.su && p.su.alarms.critical, 'ok', 'NUCLEAR INSTRUMENTATION'],
+  ['PR BELOW RANGE',      'rx',  p => p.su && !p.su.onScalePR, '', 'NUCLEAR INSTRUMENTATION'],
+
+  // --------------------------------------------------------------- pressurizer
+  ['PZR PRESS HIGH',      'rcs', p => p.z.alarms.pHi, '', 'PRESSURIZER'],
+  ['PZR PRESS LOW',       'rcs', p => p.z.alarms.pLo, '', 'PRESSURIZER'],
+  ['PZR PRESS HI TRIP',   'rcs', p => p.z.alarms.pHiTrip, 'bad', 'PRESSURIZER'],
+  ['PZR PRESS LO TRIP',   'rcs', p => p.z.alarms.pLoTrip, 'bad', 'PRESSURIZER'],
+  ['PZR LEVEL HIGH',      'rcs', p => p.z.alarms.lvlHi, '', 'PRESSURIZER'],
+  ['PZR LEVEL LOW',       'rcs', p => p.z.alarms.lvlLo, '', 'PRESSURIZER'],
+  ['PZR LEVEL HI TRIP',   'rcs', p => p.z.alarms.lvlHiTrip, 'bad', 'PRESSURIZER'],
+  ['HEATERS UNCOVERED',   'rcs', p => p.z.alarms.heatersUncovered, 'bad', 'PRESSURIZER'],
+  ['HEATERS OFF',         'rcs', p => !p.z.heatersOn, '', 'PRESSURIZER'],
+  ['PZR MANUAL CONTROL',  'rcs', p => p.z.mode !== 'auto', '', 'PRESSURIZER'],
+  ['SPRAY IN MANUAL',     'rcs', p => !p.z.sprayAuto, '', 'PRESSURIZER'],
+  ['SOLID PLANT',         'rcs', p => p.z.alarms.solidPlant, 'bad', 'PRESSURIZER'],
+  ['LTOP ARMED',          'rcs', p => p.z.alarms.ltopArmed, 'ok', 'PRESSURIZER'],
+  ['RELIEF FLOW',         'rcs', p => p.z.alarms.reliefFlow, '', 'PRESSURIZER'],
+  ...per([0, 1], i => [
+    [`PORV ${i + 1} OPEN`,   'rcs', p => p.z.porvOpen[i], 'bad', 'PRESSURIZER'],
+    [`PORV ${i + 1} BLOCKED`,'rcs', p => !p.z.porvBlock[i], '', 'PRESSURIZER'],
+    [`PORV ${i + 1} STUCK`,  'rcs', p => p.z.porvStuck[i], 'bad', 'PRESSURIZER']
+  ]),
+  ['PZR SAFETY OPEN',     'rcs', p => p.z.safetyOpen.some(Boolean), 'bad', 'PRESSURIZER'],
+  ['PRT PRESS HIGH',      'rcs', p => p.z.alarms.prtHiPress, '', 'PRESSURIZER'],
+  ['PRT RUPTURED',        'rcs', p => p.z.prtRuptured, 'bad', 'PRESSURIZER'],
+
+  // ------------------------------------------------------------ reactor coolant
+  ['LOW SUBCOOLING',      'rcs', p => p.S.subcooling < 25, 'bad', 'REACTOR COOLANT'],
+  ['SUBCOOLING MARGIN',   'rcs', p => p.S.subcooling < 50, '', 'REACTOR COOLANT'],
+  ['RCS VOID',            'rcs', p => p.S.voidMax > 0.01, 'bad', 'REACTOR COOLANT'],
+  ['RCS LEAK / BREAK',    'rcs', p => (p.breakIn2 || 0) > 0, 'bad', 'REACTOR COOLANT'],
+  ['LOOP SEALS CLEARED',  'rcs', p => p.S.solid === false && p.S.voidMax > 0.02, '', 'REACTOR COOLANT'],
+  ...per(LOOP, (L, i) => [
+    [`RCP ${L} TRIPPED`,    'rcs', p => !p.E.rcpOn[i], '', 'REACTOR COOLANT'],
+    [`LOOP ${L} FLOW LOW`,  'rcs', p => p.S.W[i] < 0.9 * p.rp.Wrated, '', 'REACTOR COOLANT'],
+    [`LOOP ${L} Thot HIGH`, 'rcs', p => p.S.Thot[i] > 618, '', 'REACTOR COOLANT'],
+    [`LOOP ${L} Tcold LOW`, 'rcs', p => p.S.Tcold[i] < 540, '', 'REACTOR COOLANT'],
+    [`LOOP ${L} dT HIGH`,   'rcs', p => p.S.Thot[i] - p.S.Tcold[i] > 70, '', 'REACTOR COOLANT']
+  ]),
+
+  // ---------------------------------------------------------- steam generators
+  ...per(LOOP, (L, i) => [
+    [`SG ${L} LEVEL LO-LO`, 'sec', p => p.sgs[i].lvlNR < p.sp.lvlLoLo, 'bad', `STEAM GENERATOR ${L}`],
+    [`SG ${L} LEVEL LOW`,   'sec', p => p.sgs[i].lvlNR < p.sp.lvlLo, '', `STEAM GENERATOR ${L}`],
+    [`SG ${L} LEVEL HIGH`,  'sec', p => p.sgs[i].lvlNR > p.sp.lvlHi, '', `STEAM GENERATOR ${L}`],
+    [`SG ${L} ARV OPEN`,    'sec', p => p.sgs[i].arvOpen, '', `STEAM GENERATOR ${L}`],
+    [`SG ${L} SAFETY OPEN`, 'sec', p => p.sgs[i].nSafetyOpen > 0, 'bad', `STEAM GENERATOR ${L}`],
+    [`SG ${L} MSIV CLOSED`, 'sec', p => !p.sgs[i].msivOpen, 'bad', `STEAM GENERATOR ${L}`],
+    [`SG ${L} DRYOUT`,      'sec', p => p.sgs[i].dryout, 'bad', `STEAM GENERATOR ${L}`],
+    [`SG ${L} TUBES UNCOV`, 'sec', p => p.sgs[i].tubeUncovered, 'bad', `STEAM GENERATOR ${L}`],
+    [`SG ${L} STEAM PRESS LO`,'sec', p => p.sgs[i].Psec < 700, '', `STEAM GENERATOR ${L}`],
+    [`SG ${L} FEED FLOW LO`, 'sec', p => p.sec.online && p.sec.Wfw[i] < 0.4 * p.sgs[i].Wsteam,
+      '', `STEAM GENERATOR ${L}`],
+    [`SG ${L} TUBE COV LOW`, 'sec', p => p.sgs[i].tubeCoverage < 0.92, '', `STEAM GENERATOR ${L}`],
+    [`SG ${L} LEVEL DEVIATION`,'sec',
+      p => Math.abs(p.sgs[i].lvlNR - p.sgs.reduce((a,s)=>a+s.lvlNR,0)/3) > 8,
+      '', `STEAM GENERATOR ${L}`]
+  ]),
+
+  // ---------------------------------------------------------- steam & feedwater
+  ['STEAM DUMPS OPEN',    'sec', p => p.sec.dumpPos > 0.02, '', 'STEAM & FEEDWATER'],
+  ['DUMPS UNAVAILABLE',   'sec', p => !p.sec.dumpAvail, '', 'STEAM & FEEDWATER'],
+  ['CONDENSER VACUUM LOW','sec', p => p.sec.condPsia > 3, '', 'STEAM & FEEDWATER'],
+  ['TURBINE OFF LINE',    'sec', p => !p.sec.online, '', 'STEAM & FEEDWATER'],
+  ...per(AB, (L, i) => [
+    [`MAIN FEED PUMP ${L} TRIP`, 'sec', p => !p.sec.mfpOn[i], 'bad', 'STEAM & FEEDWATER'],
+    [`MFP ${L} SPEED LOW`,       'sec', p => p.sec.mfpOn[i] && p.sec.mfpSpeed[i] < 0.5, '', 'STEAM & FEEDWATER']
+  ]),
+  ['AFW ACTUATED',        'sec', p => p.sec.afwOn, '', 'STEAM & FEEDWATER'],
+  ['FEEDWATER ISOLATION', 'sec', p => p.rps && p.rps.esf.fwIsol.actuated, 'bad', 'STEAM & FEEDWATER'],
+  ['MSIV CLOSURE SIGNAL', 'sec', p => p.rps && p.rps.esf.msiv.actuated, 'bad', 'STEAM & FEEDWATER'],
+  ['STEAMLINE PRESS LOW', 'sec', p => p.sgs.some(s => s.Psec < 600), '', 'STEAM & FEEDWATER'],
+  ['FEED / STEAM MISMATCH','sec',p => Math.abs(p.sec.WfwTotal - p.sec.Wturb) > 0.12 * p.sc.Wrated, '', 'STEAM & FEEDWATER'],
+  ['TURBINE RUNBACK',     'sec', p => !!p.sec.runback, '', 'STEAM & FEEDWATER'],
+  ['FEED REG VALVES OPEN','sec', p => p.sec.frvPos.some(v => v > 0.95), '', 'STEAM & FEEDWATER'],
+  ['AFW FLOW LOW',        'sec', p => p.sec.afwOn
+      && p.sec.Wafw.reduce((a, b) => a + b, 0) < 1e5, '', 'STEAM & FEEDWATER'],
+  ['FEEDWATER TEMP LOW',  'sec', p => p.sec.online && p.sec.TfwF < 380, '', 'STEAM & FEEDWATER'],
+
+  // ------------------------------------------------------------------ safeguards
+  ['SAFETY INJECTION',    'rcs', p => p.si && p.si.actuated, 'bad', 'SAFEGUARDS'],
+  ['SI BLOCKED',          'rcs', p => p.si && p.si.alarms.blocked, '', 'SAFEGUARDS'],
+  ['SI INJECTING',        'rcs', p => p.si && p.si.alarms.injecting, 'bad', 'SAFEGUARDS'],
+  ['ACCUMULATORS FIRING', 'rcs', p => p.si && p.si.alarms.accDischarging, 'bad', 'SAFEGUARDS'],
+  ['ACCUMULATOR EMPTY',   'rcs', p => p.si && p.si.alarms.accEmpty, 'bad', 'SAFEGUARDS'],
+  ['RWST LEVEL LOW',      'rcs', p => p.si && p.si.alarms.rwstLo, 'bad', 'SAFEGUARDS'],
+  ['RWST EMPTY',          'rcs', p => p.si && p.si.alarms.rwstEmpty, 'bad', 'SAFEGUARDS'],
+  ['ON SUMP RECIRC',      'rcs', p => p.si && p.si.suction === 'sump', '', 'SAFEGUARDS'],
+  ...per(AB, (L, i) => [
+    [`CHARGING PUMP ${L} OFF`, 'rcs', p => p.si && !p.si.hhOn[i], '', 'SAFEGUARDS'],
+    [`SI PUMP ${L} OFF`,       'rcs', p => p.si && !p.si.siOn[i], '', 'SAFEGUARDS'],
+    [`RHR PUMP ${L} OFF`,      'rcs', p => p.si && !p.si.lhOn[i], '', 'SAFEGUARDS']
+  ]),
+  ...per([0, 1, 2], i => [
+    [`ACCUM ${LOOP[i]} ISOLATED`,    'rcs', p => p.si && p.si.acc[i] && p.si.acc[i].isolated, '', 'SAFEGUARDS'],
+    [`ACCUM ${LOOP[i]} DISCHARGING`, 'rcs', p => p.si && p.si.acc[i] && p.si.acc[i].discharging, 'bad', 'SAFEGUARDS'],
+    [`ACCUM ${LOOP[i]} PRESS LOW`,   'rcs', p => p.si && p.si.acc[i] && p.si.acc[i].psig < 585, '', 'SAFEGUARDS']
+  ]),
+
+  // ----------------------------------------------------------------- containment
+  ['CNMT PRESS HIGH',     'rcs', p => p.cnmt && p.cnmt.alarms.hiPress, 'bad', 'CONTAINMENT'],
+  ['CNMT PRESS HI-HI',    'rcs', p => p.cnmt && p.cnmt.alarms.hiHiPress, 'bad', 'CONTAINMENT'],
+  ['CNMT NEAR DESIGN',    'rcs', p => p.cnmt && p.cnmt.alarms.nearDesign, 'bad', 'CONTAINMENT'],
+  ['CNMT OVER DESIGN',    'rcs', p => p.cnmt && p.cnmt.alarms.overDesign, 'bad', 'CONTAINMENT'],
+  ['CNMT TEMP HIGH',      'rcs', p => p.cnmt && p.cnmt.alarms.hiTemp, '', 'CONTAINMENT'],
+  ['CNMT SUMP HIGH',      'rcs', p => p.cnmt && p.cnmt.alarms.sumpHi, '', 'CONTAINMENT'],
+  ['CNMT ISOLATED',       'rcs', p => p.cnmt && p.cnmt.isolated, 'bad', 'CONTAINMENT'],
+  ['CNMT ISOLATION A',    'rcs', p => p.rps && p.rps.esf.isolA.actuated, 'bad', 'CONTAINMENT'],
+  ['VACUUM RELIEF',       'rcs', p => p.cnmt && p.cnmt.vacuumRelief, '', 'CONTAINMENT'],
+  ['CNMT SPRAY SIGNAL',   'rcs', p => p.rps && p.rps.esf.spray.actuated, 'bad', 'CONTAINMENT'],
+  ...per(AB, (L, i) => [
+    [`CNMT SPRAY ${L} RUNNING`, 'rcs', p => p.cnmt && p.cnmt.sprayOn[i], 'bad', 'CONTAINMENT']
+  ]),
+  ...per([0, 1, 2, 3], i => [
+    [`CNMT FAN ${i + 1} OFF`, 'rcs', p => p.cnmt && !p.cnmt.fansOn[i], '', 'CONTAINMENT']
+  ]),
+
+  // ------------------------------------------------------- residual heat removal
+  ['RHR IN SERVICE',      'rcs', p => p.rhr && p.rhr.inService, 'ok', 'RESIDUAL HEAT REMOVAL'],
+  ['RHR ENTRY PERMITTED', 'rcs', p => p.rhr && !p.rhr.inService
+      && (p.S.P - 14.7) <= 400 && p.S.Thot[0] <= 350, 'ok', 'RESIDUAL HEAT REMOVAL'],
+  ['COOLDOWN RATE HIGH',  'rcs', p => p.rhr && p.rhr.cooldownFperHr > 100, '', 'RESIDUAL HEAT REMOVAL'],
+  ['CCW TEMP HIGH',       'rcs', p => p.rhr && p.rhr.ccwTempF > 110, '', 'RESIDUAL HEAT REMOVAL'],
+  ...per(AB, (L, i) => [
+    [`RHR TRAIN ${L} PUMP OFF`,   'rcs', p => p.rhr && !p.rhr.trains[i].pumpOn, '', 'RESIDUAL HEAT REMOVAL'],
+    [`RHR TRAIN ${L} INTERLOCK`,  'rcs', p => p.rhr && p.rhr.trains[i].interlocked, '', 'RESIDUAL HEAT REMOVAL'],
+    [`RHR TRAIN ${L} TRIPPED`,    'rcs', p => p.rhr && p.rhr.trains[i].tripped, 'bad', 'RESIDUAL HEAT REMOVAL'],
+    [`RHR TRAIN ${L} SUCTION SHUT`,'rcs', p => p.rhr && !p.rhr.trains[i].suctionOpen, '', 'RESIDUAL HEAT REMOVAL']
+  ]),
+
+  // -------------------------------------------------- chemical & volume control
+  ['BORATING',            'rx',  p => p.borateGpm > 0, '', 'CHEMICAL & VOLUME CONTROL'],
+  ['DILUTING',            'rx',  p => p.diluteGpm > 0, '', 'CHEMICAL & VOLUME CONTROL'],
+  ['EMERGENCY BORATION',  'rx',  p => p.cv && p.cv.emergency, 'bad', 'CHEMICAL & VOLUME CONTROL'],
+  ['CVCS IN MANUAL',      'rx',  p => p.cv && p.cv.mode !== 'auto', '', 'CHEMICAL & VOLUME CONTROL'],
+  ['VCT LEVEL LOW',       'rx',  p => p.cv && p.cv.vctPct < 20, '', 'CHEMICAL & VOLUME CONTROL'],
+  ['VCT LEVEL HIGH',      'rx',  p => p.cv && p.cv.vctPct > 85, '', 'CHEMICAL & VOLUME CONTROL'],
+  ['BORIC ACID TANK LOW', 'rx',  p => p.cv && p.cv.baTankGal < 4000, '', 'CHEMICAL & VOLUME CONTROL'],
+  ['PRIMARY WATER LOW',   'rx',  p => p.cv && p.cv.pwTankGal < 4000, '', 'CHEMICAL & VOLUME CONTROL'],
+  ['CHARGING FLOW LOW',   'rx',  p => p.cv && p.cv.chargeGpm < 10, '', 'CHEMICAL & VOLUME CONTROL'],
+  ['LETDOWN ISOLATED',    'rx',  p => p.cv && p.cv.letdownGpm < 1, '', 'CHEMICAL & VOLUME CONTROL'],
+
+  // ------------------------------------------------- condenser & condensate
+  //  Back pressure is a symptom with three independent causes -- the sink, the
+  //  flow and the surface -- and they want different actions, so each is
+  //  annunciated on its own rather than behind one CONDENSER VACUUM LOW.
+  ['CONDENSER VAC LOW',   'cnd', p => p.cd && p.cd.alarms.vacuumLow, '', 'CONDENSER & VACUUM'],
+  ['CONDENSER VAC TRIP',  'cnd', p => p.cd && p.cd.alarms.vacuumTrip, 'bad', 'CONDENSER & VACUUM'],
+  ['COND TTD HIGH',       'cnd', p => p.cd && p.cd.alarms.ttdHigh, '', 'CONDENSER & VACUUM'],
+  ['COND TUBES FOULED',   'cnd', p => p.cd && p.cd.alarms.fouled, '', 'CONDENSER & VACUUM'],
+  ['COND TUBE LEAK',      'cnd', p => p.cd && p.cd.alarms.tubeLeak, 'bad', 'CONDENSER & VACUUM'],
+  ['AIR REMOVAL LOST',    'cnd', p => p.cd && p.cd.alarms.ejectorLost, 'bad', 'CONDENSER & VACUUM'],
+  ['AIR BURDEN HIGH',     'cnd', p => p.cd && p.cd.alarms.airHigh, '', 'CONDENSER & VACUUM'],
+  ['AIR IN-LEAKAGE HI',   'cnd', p => p.cd && p.cd.alarms.airInleakHi, '', 'CONDENSER & VACUUM'],
+  ['OUTPUT LOSS ON VAC',  'cnd', p => p.cd && p.cd.alarms.outputLoss, '', 'CONDENSER & VACUUM'],
+  ...per(AB, (L, i) => [
+    [`AIR EJECTOR ${L} OFF`, 'cnd', p => p.cd && !p.cd.ejectorOn[i], '', 'CONDENSER & VACUUM']
+  ]),
+
+  ['CIRC WTR FLOW LOW',   'cnd', p => p.cd && p.cd.alarms.cwLoFlow, '', 'CIRCULATING WATER'],
+  ['LOSS OF CIRC WTR',    'cnd', p => p.cd && p.cd.alarms.cwLost, 'bad', 'CIRCULATING WATER'],
+  ['CW OUTLET TEMP HI',   'cnd', p => p.cd && p.cd.alarms.cwOutletHi, '', 'CIRCULATING WATER'],
+  ['CW INLET TEMP HI',    'cnd', p => p.cd && p.cd.cwInletF > 88, '', 'CIRCULATING WATER'],
+  ...per([0, 1, 2], i => [
+    [`CIRC WTR PUMP ${i + 1} OFF`, 'cnd', p => p.cd && !p.cd.cwPumpOn[i], '', 'CIRCULATING WATER']
+  ]),
+
+  ['HOTWELL LEVEL LOW',   'cnd', p => p.cd && p.cd.alarms.hotwellLo, '', 'CONDENSATE'],
+  ['HOTWELL LEVEL HIGH',  'cnd', p => p.cd && p.cd.alarms.hotwellHi, '', 'CONDENSATE'],
+  ['HOTWELL EMPTY',       'cnd', p => p.cd && p.cd.alarms.hotwellEmpty, 'bad', 'CONDENSATE'],
+  ['HOTWELL MAKEUP',      'cnd', p => p.cd && p.cd.alarms.makeup, '', 'CONDENSATE'],
+  ['HOTWELL REJECT',      'cnd', p => p.cd && p.cd.alarms.reject, '', 'CONDENSATE'],
+  ['CST LEVEL LOW',       'cnd', p => p.cd && p.cd.alarms.cstLo, '', 'CONDENSATE'],
+  ['COND PUMP LOST',      'cnd', p => p.cd && p.cd.alarms.condPumpLost, '', 'CONDENSATE'],
+  ['ALL COND PUMPS LOST', 'cnd', p => p.cd && p.cd.alarms.condLostAll, 'bad', 'CONDENSATE'],
+  ...per([0, 1, 2], i => [
+    [`COND PUMP ${i + 1} OFF`,  'cnd', p => p.cd && !p.cd.condPumpOn[i], '', 'CONDENSATE'],
+    [`COND PUMP ${i + 1} AUTO`, 'cnd', p => p.cd && p.cd.condPumpAuto[i], 'ok', 'CONDENSATE']
+  ]),
+
+  // ------------------------------------------- component cooling & service water
+  //  The heat sink chain gets its own bay because it is diagnosed as a chain:
+  //  a rising CCW temperature is a symptom, and which link failed is the
+  //  question.  Loss of flow, loss of the exchangers, loss of service water
+  //  and a fouled strainer all raise the same temperature and want different
+  //  actions, so each gets its own window rather than sharing a summary one.
+  ['CCW SUPPLY TEMP HI',  'ccw', p => p.cw && p.cw.alarms.ccwHi, '', 'COMPONENT COOLING'],
+  ['CCW TEMP HI-HI',      'ccw', p => p.cw && p.cw.alarms.ccwHiHi, 'bad', 'COMPONENT COOLING'],
+  ['CCW FLOW LOW',        'ccw', p => p.cw && p.cw.alarms.ccwLoFlow, '', 'COMPONENT COOLING'],
+  ['CCW LOSS OF FLOW',    'ccw', p => p.cw && p.cw.alarms.ccwLost, 'bad', 'COMPONENT COOLING'],
+  ['CCW SURGE TK LO',     'ccw', p => p.cw && p.cw.alarms.surgeLo, '', 'COMPONENT COOLING'],
+  ['CCW SURGE TK HI',     'ccw', p => p.cw && p.cw.alarms.surgeHi, '', 'COMPONENT COOLING'],
+  ['CCW SURGE TK EMPTY',  'ccw', p => p.cw && p.cw.alarms.surgeEmpty, 'bad', 'COMPONENT COOLING'],
+  ['CCW LEAK',            'ccw', p => p.cw && p.cw.alarms.ccwLeak, 'bad', 'COMPONENT COOLING'],
+  ['CCW ACTIVITY HIGH',   'ccw', p => p.cw && p.cw.alarms.ccwActivity, 'bad', 'COMPONENT COOLING'],
+  ['CCW ISOLATED',        'ccw', p => p.cw && p.cw.isolated, 'bad', 'COMPONENT COOLING'],
+  ['LETDOWN HX ISOLATED', 'ccw', p => p.cw && p.cw.alarms.letdownIsol, 'bad', 'COMPONENT COOLING'],
+  ...per([0, 1, 2], i => [
+    [`CCW PUMP ${i + 1} OFF`,      'ccw', p => p.cw && !p.cw.pumpOn[i], '', 'COMPONENT COOLING'],
+    [`CCW PUMP ${i + 1} AUTO`,     'ccw', p => p.cw && p.cw.pumpAuto[i], 'ok', 'COMPONENT COOLING']
+  ]),
+  ...per(AB, (L, i) => [
+    [`CCW HX ${L} OUT OF SVC`, 'ccw', p => p.cw && !p.cw.hxInService[i], '', 'COMPONENT COOLING']
+  ]),
+
+  // ---- the reactor coolant pump thermal barriers, one window per pump ----
+  //  "Which pump" is the whole question here: the seals go one pump at a time
+  //  and the procedure trips them individually.
+  ...per(LOOP, (L, i) => [
+    [`RCP ${L} BARRIER CLG LOST`, 'ccw',
+      p => p.cw && !p.cw.rcpBarrierOK[i] && p.S.pumpOn[i], 'bad', 'COMPONENT COOLING'],
+    [`RCP ${L} SEAL DAMAGE`, 'ccw', p => p.cw && p.cw.sealDamaged[i], 'bad', 'COMPONENT COOLING']
+  ]),
+
+  ['SW SUPPLY TEMP HI',   'ccw', p => p.cw && p.cw.alarms.swHi, '', 'SERVICE WATER'],
+  ['SW FLOW LOW',         'ccw', p => p.cw && p.cw.alarms.swLoFlow, '', 'SERVICE WATER'],
+  ['LOSS OF SERVICE WTR', 'ccw', p => p.cw && p.cw.alarms.swLost, 'bad', 'SERVICE WATER'],
+  ['SW STRAINER DP HI',   'ccw', p => p.cw && p.cw.alarms.strainerDP, '', 'SERVICE WATER'],
+  ['SW RETURN TEMP HI',   'ccw', p => p.cw && p.cw.swReturnF > 115, '', 'SERVICE WATER'],
+  ['UHS TEMP HIGH',       'ccw', p => p.cw && p.cw.swSupplyF > 88, '', 'SERVICE WATER'],
+  ...per([0, 1, 2], i => [
+    [`SW PUMP ${i + 1} OFF`,   'ccw', p => p.cw && !p.cw.swPumpOn[i], '', 'SERVICE WATER'],
+    [`SW PUMP ${i + 1} AUTO`,  'ccw', p => p.cw && p.cw.swPumpAuto[i], 'ok', 'SERVICE WATER']
+  ]),
+  ['DG COOLING LOST',     'ccw', p => p.cw && p.cw.alarms.swLost
+      && p.E.edg.some(e => e.running), 'bad', 'SERVICE WATER'],
+  ['FAN COOLER CLG LOST', 'ccw', p => p.cw && p.cw.alarms.swLost
+      && p.cnmt && p.cnmt.fansOn.some(Boolean), 'bad', 'SERVICE WATER'],
+
+  // ------------------------------------------------------------------ electrical
+  ['LOSS OF OFFSITE',     'el',  p => !p.E.gridAvail, 'bad', 'ELECTRICAL'],
+  ['GENERATOR TRIP',      'el',  p => p.E.tripped, 'bad', 'ELECTRICAL'],
+  ['GEN BREAKER OPEN',    'el',  p => !p.E.genBkr, '', 'ELECTRICAL'],
+  ['UAT BREAKER OPEN',    'el',  p => !p.E.uatBkr, '', 'ELECTRICAL'],
+  ['SAT BREAKER OPEN',    'el',  p => !p.E.satBkr, '', 'ELECTRICAL'],
+  ['GENERATOR OFF LINE',  'el',  p => !p.E.online, '', 'ELECTRICAL'],
+  ['POWER FACTOR LEAD',   'el',  p => p.E.lead, '', 'ELECTRICAL'],
+  ...per(AB, (L, i) => [
+    [`AUX BUS ${L} UNDERVOLT`,    'el', p => p.E.Vaux[i] < 0.9, 'bad', 'ELECTRICAL'],
+    [`SAFETY BUS ${L} UNDERVOLT`, 'el', p => p.E.Vsafety[i] < 0.9, 'bad', 'ELECTRICAL'],
+    [`SAFETY BUS ${L} ON DG`,     'el', p => p.E.safetyFrom[i] === 'edg', '', 'ELECTRICAL'],
+    [`DG ${i + 1} RUNNING`,       'el', p => p.E.edg[i].running, 'ok', 'ELECTRICAL'],
+    [`DG ${i + 1} READY`,         'el', p => p.E.edg[i].ready, 'ok', 'ELECTRICAL'],
+    [`DG ${i + 1} BREAKER`,       'el', p => p.E.edg[i].bkr, '', 'ELECTRICAL'],
+    [`DG ${i + 1} FAILED`,        'el', p => p.E.edg[i].tripped, 'bad', 'ELECTRICAL'],
+    [`DG ${i + 1} AIR PRESS LOW`, 'el', p => p.E.edg[i].airPsi < 180, '', 'ELECTRICAL'],
+    [`DG ${i + 1} OVERLOAD`,      'el', p => p.E.edg[i].loadFrac > 0.95, 'bad', 'ELECTRICAL'],
+    [`DG ${i + 1} START SIGNAL`,  'el', p => p.E.edg[i].startSignal, '', 'ELECTRICAL']
+  ])
 ];
 
 /**
@@ -68,31 +341,84 @@ export const ALARMS = [
  * safeguard that operated and reset itself must not vanish from the board.
  */
 const SEQ = {
+  // --- added with the expanded window count ---
+  'PZR PRESS HI TRIP':'R', 'PZR PRESS LO TRIP':'R', 'PZR LEVEL HI TRIP':'R',
+  'HEATERS UNCOVERED':'R', 'SOLID PLANT':'M', 'PRT PRESS HIGH':'R',
+  'PORV 1 OPEN':'R', 'PORV 2 OPEN':'R', 'PORV 1 STUCK':'M', 'PORV 2 STUCK':'M',
+  'SG A LEVEL LO-LO':'R', 'SG B LEVEL LO-LO':'R', 'SG C LEVEL LO-LO':'R',
+  'SG A SAFETY OPEN':'M', 'SG B SAFETY OPEN':'M', 'SG C SAFETY OPEN':'M',
+  'SG A MSIV CLOSED':'M', 'SG B MSIV CLOSED':'M', 'SG C MSIV CLOSED':'M',
+  'SG A TUBES UNCOV':'M', 'SG B TUBES UNCOV':'M', 'SG C TUBES UNCOV':'M',
+  'SG A DRYOUT':'M', 'SG B DRYOUT':'M', 'SG C DRYOUT':'M',
+  'MAIN FEED PUMP A TRIP':'M', 'MAIN FEED PUMP B TRIP':'M',
+  'MSIV CLOSURE SIGNAL':'M', 'SI INJECTING':'M', 'ACCUMULATOR EMPTY':'M',
+  'RWST EMPTY':'M', 'CNMT PRESS HI-HI':'R', 'CNMT OVER DESIGN':'M',
+  'CNMT SPRAY SIGNAL':'M', 'CNMT SPRAY A RUNNING':'M', 'CNMT SPRAY B RUNNING':'M',
+  'CNMT SUMP HIGH':'R', 'RHR TRAIN A TRIPPED':'M', 'RHR TRAIN B TRIPPED':'M',
+  'EMERGENCY BORATION':'M', 'STARTUP RATE TRIP':'M',
+  'AUX BUS A UNDERVOLT':'M', 'AUX BUS B UNDERVOLT':'M',
+  'SAFETY BUS A UNDERVOLT':'M', 'SAFETY BUS B UNDERVOLT':'M',
+  'DG 1 FAILED':'M', 'DG 2 FAILED':'M',
+  'OT dT MARGIN LOW':'R', 'OP dT MARGIN LOW':'R', 'DNBR AT LIMIT':'R',
+  'CONDENSER VAC TRIP':'M', 'LOSS OF CIRC WTR':'M', 'AIR REMOVAL LOST':'M',
+  'COND TUBE LEAK':'M', 'HOTWELL EMPTY':'M', 'ALL COND PUMPS LOST':'M',
+  'CONDENSER VAC LOW':'R', 'HOTWELL LEVEL LOW':'R', 'COND TTD HIGH':'R',
+  'CCW TEMP HI-HI':'R', 'CCW LOSS OF FLOW':'M', 'CCW SURGE TK EMPTY':'M',
+  'CCW LEAK':'M', 'CCW ACTIVITY HIGH':'M', 'CCW ISOLATED':'M',
+  'LETDOWN HX ISOLATED':'R', 'CCW SUPPLY TEMP HI':'R',
+  'RCP A BARRIER CLG LOST':'R', 'RCP B BARRIER CLG LOST':'R', 'RCP C BARRIER CLG LOST':'R',
+  'RCP A SEAL DAMAGE':'M', 'RCP B SEAL DAMAGE':'M', 'RCP C SEAL DAMAGE':'M',
+  'LOSS OF SERVICE WTR':'M', 'DG COOLING LOST':'M', 'FAN COOLER CLG LOST':'M',
+  'SW SUPPLY TEMP HI':'R', 'SW FLOW LOW':'R',
+  'FEEDWATER ISOLATION':'M',
   'REACTOR TRIP':'M', 'TURBINE TRIP':'M', 'OT dT':'R', 'OP dT':'R',
-  'PZR PORV OPEN':'R', 'PZR SAFETY OPEN':'M', 'PRT RUPTURED':'M',
-  'SG SAFETY OPEN':'M', 'SAFETY INJECTION':'M', 'ACCUMULATORS FIRING':'M',
+  'PZR SAFETY OPEN':'M', 'PRT RUPTURED':'M',
+  'SAFETY INJECTION':'M', 'ACCUMULATORS FIRING':'M',
   'ON SUMP RECIRC':'M', 'RCS LEAK / BREAK':'M', 'CNMT ISOLATED':'M',
-  'CNMT SPRAY':'M', 'CNMT ISOLATION A':'M', 'MSIV CLOSURE':'M',
-  'FEEDWATER ISOLATION':'M', 'LOSS OF OFFSITE':'M', 'GENERATOR TRIP':'M',
-  'DG FAILED':'M', 'CHANNEL FAILED':'M', 'AFW ACTUATED':'R',
-  'LOW SUBCOOLING':'R', 'RCS VOID':'R', 'SG LEVEL LO-LO':'R',
+  'CNMT ISOLATION A':'M',
+  'LOSS OF OFFSITE':'M', 'GENERATOR TRIP':'M',
+  'CHANNEL FAILED':'M', 'AFW ACTUATED':'R',
+  'LOW SUBCOOLING':'R', 'RCS VOID':'R',
   'CNMT PRESS HIGH':'R', 'RWST LEVEL LOW':'R', 'CNMT NEAR DESIGN':'M'
 };
+
+/**
+ * Every key above must name a real window.  Six did not -- 'PZR PORV OPEN',
+ * 'SG SAFETY OPEN', 'SG LEVEL LO-LO', 'CNMT SPRAY', 'MSIV CLOSURE' and
+ * 'DG FAILED' were written before those windows were de-aggregated per unit,
+ * and the de-aggregated windows silently fell back to sequence A.  A safety
+ * valve that lifted and reseated then vanished from the board, which is the
+ * exact failure the M sequence exists to prevent.  This assertion fails loudly
+ * rather than letting the next rename go quiet the same way.
+ */
+export function seqTableOrphans() {
+  const names = new Set(ALARMS.map(a => a[0]));
+  return Object.keys(SEQ).filter(k => !names.has(k));
+}
 
 /** Point list in the shape the ISA-18.1 engine expects. */
 export function annunPoints() {
   return ALARMS.map(a => ({
     name: a[0], group: a[1], cls: a[3],
+    section: a[4] || a[1],
     seqType: SEQ[a[0]] || 'A',
     firstOut: true
   }));
+}
+
+/** Section labels, in board layout order. */
+export function sections() {
+  const out = [];
+  for (const a of ALARMS) { const s = a[4] || a[1]; if (!out.includes(s)) out.push(s); }
+  return out;
 }
 export function readPoint(PL, i) {
   try { return !!ALARMS[i][2](PL); } catch (e) { return false; }
 }
 
 export function makeAlarmState() {
-  return { st: ALARMS.map(() => ({ on: false, ack: false })), first: -1, anyNew: false };
+  return { st: ALARMS.map(() => ({ on: false, ack: false })),
+           first: -1, firstBySection: {}, anyNew: false };
 }
 
 export function updateAlarms(A, PL) {
@@ -101,14 +427,60 @@ export function updateAlarms(A, PL) {
     let on = false;
     try { on = !!ALARMS[i][2](PL); } catch (e) { on = false; }
     const s = A.st[i];
-    if (on && !s.on) { s.ack = false; if (A.first < 0) A.first = i; }
+    if (on && !s.on) {
+      s.ack = false;
+      if (A.first < 0) A.first = i;
+      const sec = ALARMS[i][4] || ALARMS[i][1];
+      if (A.firstBySection[sec] === undefined) A.firstBySection[sec] = i;
+    }
     s.on = on;
     if (on && !s.ack) A.anyNew = true;
   }
   if (!A.st.some(s => s.on)) A.first = -1;
+  // a section with nothing lit has no initiating window to remember
+  for (const sec of Object.keys(A.firstBySection)) {
+    const any = ALARMS.some((a, i) => (a[4] || a[1]) === sec && A.st[i].on);
+    if (!any) delete A.firstBySection[sec];
+  }
   return A;
 }
 export function ackAll(A) { A.st.forEach(s => s.ack = true); }
+
+/**
+ * Break a legend into the short stacked lines an engraved window actually
+ * carries.  Real windows are about three characters wider than "LO-LO" and
+ * fit three or four lines, so the legend is balanced across lines rather than
+ * greedily filled -- "SG A / LEVEL / LO-LO", never "SG A LEVEL / LO-LO".
+ */
+export function legendLines(name, maxLines = 4) {
+  const words = name.split(/\s+/);
+  if (words.length <= 1) return words;
+  // try increasing line counts until every line fits comfortably
+  for (let n = 1; n <= maxLines; n++) {
+    const longest = Math.max(...words.map(w => w.length));
+    const target = Math.max(Math.ceil(name.length / n) + 2, longest);
+    const lines = []; let cur = '';
+    for (const w of words) {
+      if (!cur) { cur = w; continue; }
+      if ((cur + ' ' + w).length <= Math.min(target, 13)) cur += ' ' + w;
+      else { lines.push(cur); cur = w; }
+    }
+    if (cur) lines.push(cur);
+    if (lines.length <= n && lines.every(l => l.length <= 13)) return lines;
+    if (n === maxLines) return lines;      // never drop a word to fit
+  }
+  return words;
+}
+
+/** Windows grouped by board section, in panel layout order. */
+export function bySection(points) {
+  const out = new Map();
+  points.forEach((p, i) => {
+    if (!out.has(p.section)) out.set(p.section, []);
+    out.get(p.section).push(i);
+  });
+  return out;
+}
 
 /** Render tiles, optionally filtered to one board's group. */
 export function tilesHTML(A, group) {
