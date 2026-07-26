@@ -2,9 +2,9 @@
 //  boards.js — the four detail boards plus the overview
 //  Each board is a pure render function of the shared plant instance.
 // ======================================================================
-import * as W from './widgets.js?v=0.27.0';
-import * as AL from './alarms.js?v=0.27.0';
-import * as CT from './controls.js?v=0.27.0';
+import * as W from './widgets.js?v=0.27.1';
+import * as AL from './alarms.js?v=0.27.1';
+import * as CT from './controls.js?v=0.27.1';
 const F = W.F, clamp = W.clamp, P = W.P;
 
 const cl = (v, lo, hi) => (v < lo || v > hi) ? 'bad' : '';

@@ -18,8 +18,8 @@
 //  electrical upset each keep their own initiating window.
 // ======================================================================
 
-import { RPS_PARAMS } from '../lib/rps.js?v=0.27.0';
-import { GROUPS as ROD_GROUPS } from '../lib/rods.js?v=0.27.0';
+import { RPS_PARAMS } from '../lib/rps.js?v=0.27.1';
+import { GROUPS as ROD_GROUPS } from '../lib/rods.js?v=0.27.1';
 
 const LOOP = ['A', 'B', 'C'];
 const AB = ['A', 'B'];
@@ -101,8 +101,15 @@ export const ALARMS = [
   })),
 
   // -------------------------------------------------- nuclear instrumentation
-  ['SR HIGH FLUX',        'rx',  p => p.su && p.su.alarms.srHi, '', 'NUCLEAR INSTRUMENTATION'],
-  ['SR OFF SCALE',        'rx',  p => p.su && p.su.alarms.offScale, '', 'NUCLEAR INSTRUMENTATION'],
+  //  Source range is blocked and de-energised above P-6.  Being off scale at
+  //  power is what is SUPPOSED to happen, so annunciating it meant two windows
+  //  lit for the entire time the plant was at power.  Gated on reactor power
+  //  rather than on `su.blocked`, which is an operator action and stays false
+  //  through a normal ascent.
+  ['SR HIGH FLUX',        'rx',
+    p => p.su && p.su.alarms.srHi && p.k.Ptot < 1e-4, '', 'NUCLEAR INSTRUMENTATION'],
+  ['SR OFF SCALE',        'rx',
+    p => p.su && p.su.alarms.offScale && p.k.Ptot < 1e-4, '', 'NUCLEAR INSTRUMENTATION'],
   ['STARTUP RATE HIGH',   'rx',  p => p.su && p.su.alarms.surHi, '', 'NUCLEAR INSTRUMENTATION'],
   ['STARTUP RATE TRIP',   'rx',  p => p.su && p.su.alarms.surTrip, 'bad', 'NUCLEAR INSTRUMENTATION'],
   ['APPROACHING CRITICAL','rx',  p => p.su && p.su.alarms.critical, 'ok', 'NUCLEAR INSTRUMENTATION'],
@@ -134,7 +141,11 @@ export const ALARMS = [
 
   // ------------------------------------------------------------ reactor coolant
   ['LOW SUBCOOLING',      'rcs', p => p.S.subcooling < 25, 'bad', 'REACTOR COOLANT'],
-  ['SUBCOOLING MARGIN',   'rcs', p => p.S.subcooling < 50, '', 'REACTOR COOLANT'],
+  //  Set at 50 F against a normal full-power subcooling of 43 F, so it was lit
+  //  whenever the plant was running correctly.  The subcooling monitor exists
+  //  to warn that margin to saturation is being LOST; 25 F is where that starts
+  //  to mean something.
+  ['SUBCOOLING MARGIN',   'rcs', p => p.S.subcooling < 25, '', 'REACTOR COOLANT'],
   ['RCS VOID',            'rcs', p => p.S.voidMax > 0.01, 'bad', 'REACTOR COOLANT'],
   ['RCS LEAK / BREAK',    'rcs', p => (p.breakIn2 || 0) > 0, 'bad', 'REACTOR COOLANT'],
   ['LOOP SEALS CLEARED',  'rcs', p => p.S.solid === false && p.S.voidMax > 0.02, '', 'REACTOR COOLANT'],
@@ -180,7 +191,12 @@ export const ALARMS = [
   ['STEAMLINE PRESS LOW', 'sec', p => p.sgs.some(s => s.Psec < 600), '', 'STEAM & FEEDWATER'],
   ['FEED / STEAM MISMATCH','sec',p => Math.abs(p.sec.WfwTotal - p.sec.Wturb) > 0.12 * p.sc.Wrated, '', 'STEAM & FEEDWATER'],
   ['TURBINE RUNBACK',     'sec', p => !!p.sec.runback, '', 'STEAM & FEEDWATER'],
-  ['FEED REG VALVES OPEN','sec', p => p.sec.frvPos.some(v => v > 0.95), '', 'STEAM & FEEDWATER'],
+  //  Feed regulating valves ARE full open at full power -- that is the design
+  //  point, not a condition.  What matters is being full open and still losing
+  //  level: the valve is against its stop with nowhere left to go.
+  ['FEED REG VALVES OPEN','sec',
+    p => p.sec.frvPos.some((v, i) => v > 0.95 && p.sgs[i].lvlNR < p.sp.lvlSetPct - 2),
+    '', 'STEAM & FEEDWATER'],
   ['AFW FLOW LOW',        'sec', p => p.sec.afwOn
       && p.sec.Wafw.reduce((a, b) => a + b, 0) < 1e5, '', 'STEAM & FEEDWATER'],
   ['FEEDWATER TEMP LOW',  'sec', p => p.sec.online && p.sec.TfwF < 380, '', 'STEAM & FEEDWATER'],
@@ -230,10 +246,21 @@ export const ALARMS = [
   ['COOLDOWN RATE HIGH',  'rcs', p => p.rhr && p.rhr.cooldownFperHr > 100, '', 'RESIDUAL HEAT REMOVAL'],
   ['CCW TEMP HIGH',       'rcs', p => p.rhr && p.rhr.ccwTempF > 110, '', 'RESIDUAL HEAT REMOVAL'],
   ...per(AB, (L, i) => [
-    [`RHR TRAIN ${L} PUMP OFF`,   'rcs', p => p.rhr && !p.rhr.trains[i].pumpOn, '', 'RESIDUAL HEAT REMOVAL'],
-    [`RHR TRAIN ${L} INTERLOCK`,  'rcs', p => p.rhr && p.rhr.trains[i].interlocked, '', 'RESIDUAL HEAT REMOVAL'],
+    //  RHR is correctly out of service, interlocked and isolated at operating
+    //  pressure -- it CANNOT be in service there.  Annunciating that lit six
+    //  windows through every hour of normal power operation.  These are only
+    //  conditions once the plant is below the entry permissive and RHR is
+    //  something you might actually want.
+    [`RHR TRAIN ${L} PUMP OFF`,   'rcs',
+      p => p.rhr && !p.rhr.trains[i].pumpOn && p.S.P - 14.7 < p.rh.permissivePsig, '',
+      'RESIDUAL HEAT REMOVAL'],
+    [`RHR TRAIN ${L} INTERLOCK`,  'rcs',
+      p => p.rhr && p.rhr.trains[i].interlocked && p.S.P - 14.7 < p.rh.permissivePsig, '',
+      'RESIDUAL HEAT REMOVAL'],
     [`RHR TRAIN ${L} TRIPPED`,    'rcs', p => p.rhr && p.rhr.trains[i].tripped, 'bad', 'RESIDUAL HEAT REMOVAL'],
-    [`RHR TRAIN ${L} SUCTION SHUT`,'rcs', p => p.rhr && !p.rhr.trains[i].suctionOpen, '', 'RESIDUAL HEAT REMOVAL']
+    [`RHR TRAIN ${L} SUCTION SHUT`,'rcs',
+      p => p.rhr && !p.rhr.trains[i].suctionOpen && p.S.P - 14.7 < p.rh.permissivePsig, '',
+      'RESIDUAL HEAT REMOVAL']
   ]),
 
   // -------------------------------------------------- chemical & volume control
@@ -372,7 +399,8 @@ export const ALARMS = [
   ['COND PUMP LOST',      'cnd', p => p.cd && p.cd.alarms.condPumpLost, '', 'CONDENSATE'],
   ['ALL COND PUMPS LOST', 'cnd', p => p.cd && p.cd.alarms.condLostAll, 'bad', 'CONDENSATE'],
   ...per([0, 1, 2], i => [
-    [`COND PUMP ${i + 1} OFF`,  'cnd', p => p.cd && !p.cd.condPumpOn[i], '', 'CONDENSATE'],
+    [`COND PUMP ${i + 1} OFF`,  'cnd',
+      p => p.cd && !p.cd.condPumpOn[i] && !p.cd.condPumpAuto[i], '', 'CONDENSATE'],
     [`COND PUMP ${i + 1} AUTO`, 'cnd', p => p.cd && p.cd.condPumpAuto[i], 'ok', 'CONDENSATE']
   ]),
 
@@ -394,7 +422,11 @@ export const ALARMS = [
   ['CCW ISOLATED',        'ccw', p => p.cw && p.cw.isolated, 'bad', 'COMPONENT COOLING'],
   ['LETDOWN HX ISOLATED', 'ccw', p => p.cw && p.cw.alarms.letdownIsol, 'bad', 'COMPONENT COOLING'],
   ...per([0, 1, 2], i => [
-    [`CCW PUMP ${i + 1} OFF`,      'ccw', p => p.cw && !p.cw.pumpOn[i], '', 'COMPONENT COOLING'],
+    //  A stopped pump that is in AUTO is a standby train, which is the normal
+    //  lineup -- annunciating it lit a window on a healthy plant AND
+    //  double-annunciated the same fact as the AUTO status window beside it.
+    [`CCW PUMP ${i + 1} OFF`,      'ccw',
+      p => p.cw && !p.cw.pumpOn[i] && !p.cw.pumpAuto[i], '', 'COMPONENT COOLING'],
     [`CCW PUMP ${i + 1} AUTO`,     'ccw', p => p.cw && p.cw.pumpAuto[i], 'ok', 'COMPONENT COOLING']
   ]),
   ...per(AB, (L, i) => [
@@ -417,7 +449,8 @@ export const ALARMS = [
   ['SW RETURN TEMP HI',   'ccw', p => p.cw && p.cw.swReturnF > 115, '', 'SERVICE WATER'],
   ['UHS TEMP HIGH',       'ccw', p => p.cw && p.cw.swSupplyF > 88, '', 'SERVICE WATER'],
   ...per([0, 1, 2], i => [
-    [`SW PUMP ${i + 1} OFF`,   'ccw', p => p.cw && !p.cw.swPumpOn[i], '', 'SERVICE WATER'],
+    [`SW PUMP ${i + 1} OFF`,   'ccw',
+      p => p.cw && !p.cw.swPumpOn[i] && !p.cw.swPumpAuto[i], '', 'SERVICE WATER'],
     [`SW PUMP ${i + 1} AUTO`,  'ccw', p => p.cw && p.cw.swPumpAuto[i], 'ok', 'SERVICE WATER']
   ]),
   ['DG COOLING LOST',     'ccw', p => p.cw && p.cw.alarms.swLost
@@ -431,7 +464,10 @@ export const ALARMS = [
   ['GEN BREAKER OPEN',    'el',  p => !p.E.genBkr, '', 'ELECTRICAL'],
   ['UAT BREAKER OPEN',    'el',  p => !p.E.uatBkr, '', 'ELECTRICAL'],
   ['SAT BREAKER OPEN',    'el',  p => !p.E.satBkr, '', 'ELECTRICAL'],
-  ['GENERATOR OFF LINE',  'el',  p => !p.E.online, '', 'ELECTRICAL'],
+  //  This read `E.online`, which is never set -- the generator breaker is
+  //  `E.genBkr`.  So the window sat lit through 916 MWe of full-power
+  //  operation, which is the single worst thing an annunciator can do.
+  ['GENERATOR OFF LINE',  'el',  p => !p.E.genBkr, '', 'ELECTRICAL'],
   ['POWER FACTOR LEAD',   'el',  p => p.E.lead, '', 'ELECTRICAL'],
   ...per(AB, (L, i) => [
     [`AUX BUS ${L} UNDERVOLT`,    'el', p => p.E.Vaux[i] < 0.9, 'bad', 'ELECTRICAL'],

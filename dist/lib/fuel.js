@@ -18,8 +18,8 @@
 //  silently dropped.
 // ======================================================================
 
-import * as ST from './steam.js?v=0.27.0';
-import * as PR from './props.js?v=0.27.0';
+import * as ST from './steam.js?v=0.27.1';
+import * as PR from './props.js?v=0.27.1';
 
 export function fuelParams() {
   const P = {

@@ -19,25 +19,25 @@
 //  Every one of those is a loop closing on the others.
 // ======================================================================
 
-import * as K from './kinetics.js?v=0.27.0';
-import * as RX from './reactivity.js?v=0.27.0';
-import * as FU from './fuel.js?v=0.27.0';
-import * as R from './rcs.js?v=0.27.0';
-import * as SGM from './sg.js?v=0.27.0';
-import * as Z from './pzr.js?v=0.27.0';
-import * as SEC from './secondary.js?v=0.27.0';
-import * as PR from './props.js?v=0.27.0';
-import * as EL from './elec.js?v=0.27.0';
-import * as CV from './cvcs.js?v=0.27.0';
-import * as RH from './rhr.js?v=0.27.0';
-import * as CW from './ccw.js?v=0.27.0';
-import * as CD from './cond.js?v=0.27.0';
-import * as RD from './rad.js?v=0.27.0';
-import * as RO from './rods.js?v=0.27.0';
-import * as SIM from './si.js?v=0.27.0';
-import * as CN from './cnmt.js?v=0.27.0';
-import * as RP from './rps.js?v=0.27.0';
-import * as SU from './startup.js?v=0.27.0';
+import * as K from './kinetics.js?v=0.27.1';
+import * as RX from './reactivity.js?v=0.27.1';
+import * as FU from './fuel.js?v=0.27.1';
+import * as R from './rcs.js?v=0.27.1';
+import * as SGM from './sg.js?v=0.27.1';
+import * as Z from './pzr.js?v=0.27.1';
+import * as SEC from './secondary.js?v=0.27.1';
+import * as PR from './props.js?v=0.27.1';
+import * as EL from './elec.js?v=0.27.1';
+import * as CV from './cvcs.js?v=0.27.1';
+import * as RH from './rhr.js?v=0.27.1';
+import * as CW from './ccw.js?v=0.27.1';
+import * as CD from './cond.js?v=0.27.1';
+import * as RD from './rad.js?v=0.27.1';
+import * as RO from './rods.js?v=0.27.1';
+import * as SIM from './si.js?v=0.27.1';
+import * as CN from './cnmt.js?v=0.27.1';
+import * as RP from './rps.js?v=0.27.1';
+import * as SU from './startup.js?v=0.27.1';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 

@@ -22,7 +22,7 @@
 //  scenarios this panel is being built for are covered.
 // ======================================================================
 
-import * as PR from './props.js?v=0.27.0';
+import * as PR from './props.js?v=0.27.1';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const PSIG = 14.7;
