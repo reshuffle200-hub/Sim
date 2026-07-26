@@ -18,8 +18,8 @@
 //  electrical upset each keep their own initiating window.
 // ======================================================================
 
-import { RPS_PARAMS } from '../lib/rps.js';
-import { GROUPS as ROD_GROUPS } from '../lib/rods.js';
+import { RPS_PARAMS } from '../lib/rps.js?v=0.27.0';
+import { GROUPS as ROD_GROUPS } from '../lib/rods.js?v=0.27.0';
 
 const LOOP = ['A', 'B', 'C'];
 const AB = ['A', 'B'];

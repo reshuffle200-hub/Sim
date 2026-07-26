@@ -26,7 +26,7 @@
 //  the mechanism the NRC text describes.  Still a fit, not lattice physics.
 // ======================================================================
 
-import * as ST from './steam.js';
+import * as ST from './steam.js?v=0.27.0';
 
 export const PCM = 1e-5;                 // 1 pcm in dk/k
 
