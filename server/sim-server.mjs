@@ -41,6 +41,18 @@ PLANT.initPlant(PL, START_LOAD, 900);
 PL.rodAuto = true;
 let simT = 0, speed = 1, paused = false;
 
+// Prebuild the standard initial conditions ONCE at boot, so "reset" is an
+// instant server-side restore instead of an 18,000-step rebuild in each
+// browser (which froze the tab and raced the socket).
+const STD = {};
+for (const [label, load] of [['100', 1.0], ['70', 0.7], ['40', 0.4]]) {
+  const t = PLANT.makePlant({ life: 'MOL' });
+  PLANT.initPlant(t, load, 900);
+  t.rodAuto = true;
+  STD[label] = IC.snapshot(t);
+}
+console.log('standard ICs ready:', Object.keys(STD).join(', '));
+
 // ---- ticket verification ---------------------------------------------
 function verifyTicket(token) {
   const parts = String(token || '').split('.');
@@ -87,6 +99,7 @@ wss.on('connection', (ws, principal) => {
     if (ws.role !== 'operator') return;               // observers are view-only
     let m; try { m = JSON.parse(buf.toString()); } catch { return; }
     try {
+      if (m.a === 'reset')   { const ic = STD[m.load]; if (ic) { IC.restore(PL, ic); paused = false; speed = 1; } return; }
       if (m.a === 'restore') { IC.restore(PL, m.ic); return; }
       if (m.a === 'pause')   { paused = !paused; return; }
       if (m.a === 'speed')   { speed = Math.max(1, Math.min(60, +m.v || 1)); return; }

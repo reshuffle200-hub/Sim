@@ -798,13 +798,8 @@ function restoreIC(ic){
 }
 const STD = {};
 function standardIC(load, label){
-  if (!STD[label]) {
-    const tmp = PLANT.makePlant({ life: 'MOL' });
-    PLANT.initPlant(tmp, load, 900);
-    tmp.rodAuto = true;
-    STD[label] = IC.snapshot(tmp, { std: true });
-  }
-  NET.send('restore', { ic: STD[label] });
+  // Reset is done on the server now (instant); no heavy rebuild in the browser.
+  NET.send('reset', { load: label });
 }
 
 // ---- trends -------------------------------------------------------
@@ -1136,10 +1131,11 @@ el('bStd100').onclick=()=>standardIC(1.0,'100');
 el('bStd70').onclick=()=>standardIC(0.7,'70');
 el('bStd40').onclick=()=>standardIC(0.4,'40');
 el('bReset').onclick=()=>{
-  PL=PLANT.makePlant({life:'MOL'}); PLANT.initPlant(PL,1.0,900); PL.rodAuto=true;
+  NET.send('reset',{load:'100'});   // server snaps the SHARED plant to a clean 100%
+  AN.reset(ANN);                    // clear this viewer's alarm annunciators
   simT=0; TR.i=0; TR.full=false;
   el('sLoad').value=100; el('oLoad').textContent='100%';
-  paused=false; el('bPause').textContent='Pause'; lastHTML=0; };
+  el('bPause').textContent='Pause'; lastHTML=0; };
 
 el('modelnote').innerHTML =
  '<b>Model.</b> Six-group point kinetics with ANS-5.1 decay heat; reactivity from Doppler, '+
