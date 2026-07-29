@@ -1,0 +1,9 @@
+{
+  "name": "pwr-sim",
+  "version": "0.28.2",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server/sim-server.mjs" },
+  "dependencies": { "ws": "^8.18.0" }
+}

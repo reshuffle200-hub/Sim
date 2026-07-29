@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23262c22'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%237fd18a' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%237fd18a'/%3E%3C/svg%3E">
 <title>Unit 1 — Westinghouse 3-Loop PWR — Overview</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -702,6 +703,7 @@ import * as CT from './ui/controls.js';
 import * as AL from './ui/alarms.js';
 import * as AN from './ui/annun.js';
 import { F, clamp, el, fitCanvas, stripChart } from './ui/widgets.js';
+import * as NET from './ui/net.mjs';
 
 let PL = PLANT.makePlant({ life: 'MOL' });
 PLANT.initPlant(PL, 1.0, 900);
@@ -710,20 +712,60 @@ PL.rodAuto = true;
 let board = 'overview', paused = false, speed = 1, autoSpeed = false, simT = 0;
 const ANN = AN.makeEngine(AL.annunPoints());
 
-// --- audible horn, Web Audio.  Guarded: some hosts block audio entirely.
-let audio = null, osc = null, gain = null;
-function hornOn(kind){
+// --- audible horn, Web Audio.
+//
+// Two rules the browser enforces and this got wrong.  An AudioContext created
+// without a user gesture starts SUSPENDED and every resume() on it is refused
+// with a console warning -- and hornOn() was called from render(), so that
+// refusal was logged sixty times a second for as long as any alarm was up. The
+// screenshot that found this had 258 of them.
+//
+// So: the context is built once, from a real gesture, and never before. And the
+// horn is edge-triggered rather than re-asserted every frame, which it had no
+// reason to be even when it worked.
+let audio = null, osc = null, gain = null, audioReady = false, hornState = null;
+
+function initAudio(){
+  if (audio) return;
   try{
-    if(!audio){ audio = new (window.AudioContext||window.webkitAudioContext)();
-      osc = audio.createOscillator(); gain = audio.createGain();
-      osc.connect(gain); gain.connect(audio.destination);
-      gain.gain.value = 0; osc.start(); }
-    if(audio.state === 'suspended') audio.resume();
+    audio = new (window.AudioContext || window.webkitAudioContext)();
+    osc = audio.createOscillator(); gain = audio.createGain();
+    osc.connect(gain); gain.connect(audio.destination);
+    gain.gain.value = 0; osc.start();
+    audioReady = true;
+    if (hornState !== null) applyHorn(hornState);   // an alarm was already up
+  }catch(e){ audioReady = false; }   // audio unavailable; the horn LAMP still works
+}
+
+// The first gesture of any kind unlocks it. Until then the board is silent and
+// says nothing about it, which is the correct behaviour rather than a failure.
+(function(){
+  const unlock = () => {
+    initAudio();
+    if (audio && audio.state === 'suspended') audio.resume().catch(() => {});
+    window.removeEventListener('pointerdown', unlock);
+    window.removeEventListener('keydown', unlock);
+  };
+  window.addEventListener('pointerdown', unlock);
+  window.addEventListener('keydown', unlock);
+})();
+
+function applyHorn(kind){
+  try{
     osc.frequency.value = kind === 'ringback' ? 660 : 440;
     gain.gain.value = 0.035;
-  }catch(e){ /* audio unavailable; the visual horn lamp still works */ }
+  }catch(e){}
 }
-function hornOff(){ try{ if(gain) gain.gain.value = 0; }catch(e){} }
+function hornOn(kind){
+  if (hornState === kind) return;      // edge triggered, not every frame
+  hornState = kind;
+  if (audioReady) applyHorn(kind);
+}
+function hornOff(){
+  if (hornState === null) return;
+  hornState = null;
+  try{ if (gain) gain.gain.value = 0; }catch(e){}
+}
 
 // ---- initial conditions -------------------------------------------
 let LIB = IC.loadPersisted() || IC.makeLibrary();
@@ -762,7 +804,7 @@ function standardIC(load, label){
     tmp.rodAuto = true;
     STD[label] = IC.snapshot(tmp, { std: true });
   }
-  restoreIC(STD[label]);
+  NET.send('restore', { ic: STD[label] });
 }
 
 // ---- trends -------------------------------------------------------
@@ -993,15 +1035,15 @@ el('boardArea').addEventListener('click', e => {
   const s = e.target.closest('[data-sw]');
   if (s) {
     const raw = s.dataset.pos;
-    CT.actuate(PL, +s.dataset.sw, raw === 'next' ? 'next' : +raw, SWAPI);
+    NET.send('sw', { sw: +s.dataset.sw, pos: raw === 'next' ? 'next' : +raw });
     lastHTML = 0;
     return;
   }
   const t = e.target.closest('[data-su]'); if (!t) return;
   const act = t.dataset.su;
-  if (act === 'base')  SU.takeBaseline(PL.su, PL.ppm, PL.banks.ctrlDemand);
-  if (act === 'point') SU.takePoint(PL.su, PL.ppm, PL.banks.ctrlDemand);
-  if (act === 'clear') SU.clearPoints(PL.su);
+  if (act === 'base')  NET.send('suBase');
+  if (act === 'point') NET.send('suPoint');
+  if (act === 'clear') NET.send('suClear');
   if (act === 'csv') {
     const rows = [['n','ppm','rod_steps','cps','inv_M']]
       .concat(PL.su.points.map((p, i) => [i + 1, p.ppm.toFixed(1), p.rods.toFixed(0),
@@ -1039,30 +1081,24 @@ function hold(id,fn){ let t=null;
   const stop=()=>{clearInterval(t);t=null;};
   const e2=el(id); e2.addEventListener('mousedown',go); e2.addEventListener('touchstart',go,{passive:false});
   ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev=>e2.addEventListener(ev,stop)); }
-hold('bRodOut',()=>{PL.banks.ctrlDemand=clamp(PL.banks.ctrlDemand+2,0,528);});
-hold('bRodIn', ()=>{PL.banks.ctrlDemand=clamp(PL.banks.ctrlDemand-2,0,528);});
-el('bDilute').onclick=()=>{ PL.diluteGpm = PL.diluteGpm>0?0:PL.cp.dilMaxGpm; PL.borateGpm=0; };
-el('bBorate').onclick=()=>{ PL.borateGpm = PL.borateGpm>0?0:PL.cp.boricMaxGpm; PL.diluteGpm=0; };
-el('sDumpSet').oninput=e=>{ PL.sc.dumpPressSet=+e.target.value; };
-el('sPzrSet').oninput=e=>{ PL.zp.pSet=+e.target.value; };
-el('bDumpMode').onclick=()=>{ PL.sec.dumpMode = PL.sec.dumpMode==='tavg'?'pressure':'tavg'; };
-el('bRHR').onclick=()=>{
-  if (PL.rhr.inService) { RH.removeFromService(PL.rhr); return; }
-  if (RH.placeInService(PL.rh, PL.rhr, 0.4)) { PL.rhr.mode='rate'; PL.rhr.rateSetFperHr=45; }
-};
-el('bBreak').onclick=()=>{ PL.breakIn2 = PL.breakIn2>0 ? 0 : 2.0; };
-el('bBreakBig').onclick=()=>{ PL.breakIn2 = PL.breakIn2>0 ? 0 : 8.0; };
-el('bSIblock').onclick=()=>{ if(PL.si.manualBlock){PL.si.manualBlock=false;} else SIM.blockSI(PL.si); };
-el('bScram').onclick=()=>{ PL.trip=true; PL.tripMsg='MANUAL TRIP';
-  if(!PL.tripFirst) PL.tripFirst='MANUAL TRIP';
-  PL.sec.tripped=true; EL.tripGenerator(PL.E,'UNIT TRIP');
-  PL.banks.ctrlDemand=0; PL.banks.sd=[0,0]; };
-el('bTurb').onclick=()=>{ PL.sec.tripped=true; };
-el('bLOOP').onclick=()=>{ EL.loseOffsite(PL.E); EL.tripGenerator(PL.E,'LOOP'); };
-el('bLOFW').onclick=()=>{ PL.sec.mfpOn=[false,false]; };
-el('bRCP').onclick=()=>{ PL.E.rcpOn[1]=false; PL.S.pumpOn[1]=false; };
-el('bPORV').onclick=()=>{ PL.z.porvStuck[0]=true; };
-el('bPause').onclick=()=>{ paused=!paused; el('bPause').textContent=paused?'Run':'Pause'; };
+hold('bRodOut',()=>NET.send('rod',{d:2}));
+hold('bRodIn', ()=>NET.send('rod',{d:-2}));
+el('bDilute').onclick=()=>NET.send('dilute');
+el('bBorate').onclick=()=>NET.send('borate');
+el('sDumpSet').oninput=e=>NET.send('dumpSet',{v:+e.target.value});
+el('sPzrSet').oninput=e=>NET.send('pzrSet',{v:+e.target.value});
+el('bDumpMode').onclick=()=>NET.send('dumpMode');
+el('bRHR').onclick=()=>NET.send('rhr');
+el('bBreak').onclick=()=>NET.send('break',{in2:2.0});
+el('bBreakBig').onclick=()=>NET.send('break',{in2:8.0});
+el('bSIblock').onclick=()=>NET.send('siBlock');
+el('bScram').onclick=()=>NET.send('scram');
+el('bTurb').onclick=()=>NET.send('turb');
+el('bLOOP').onclick=()=>NET.send('loop');
+el('bLOFW').onclick=()=>NET.send('lofw');
+el('bRCP').onclick=()=>NET.send('rcp',{i:1});
+el('bPORV').onclick=()=>NET.send('porv');
+el('bPause').onclick=()=>NET.send('pause');
 el('bAck').onclick=()=>{ AN.acknowledge(ANN); };
 el('bSilence').onclick=()=>AN.silence(ANN);
 el('bAckA').onclick=()=>{ AN.acknowledge(ANN); };
@@ -1071,7 +1107,7 @@ el('bLampTest').onclick=()=>{ AN.setLampTest(ANN,!ANN.lampTest); lastHTML=0; };
 el('bSnap').onclick=()=>{ IC.save(LIB, icName(), PL, {}); renderICs(); };
 el('icList').addEventListener('click', e => {
   const g = e.target.closest('[data-go]'), d = e.target.closest('[data-del]');
-  if (g) restoreIC(LIB.slots[g.dataset.go]);
+  if (g) NET.send('restore', { ic: LIB.slots[g.dataset.go] });
   if (d) { IC.remove(LIB, d.dataset.del); renderICs(); }
 });
 el('bExport').onclick=()=>{
@@ -1091,7 +1127,7 @@ el('fImport').addEventListener('change', ev => {
       const ic = IC.fromJSON(r.result);
       const n = (ic.meta && ic.meta.name) || f.name.replace(/\.json$/, '');
       LIB.slots[n] = ic; if (!LIB.order.includes(n)) LIB.order.push(n);
-      IC.persist(LIB); renderICs(); restoreIC(ic);
+      IC.persist(LIB); renderICs(); NET.send('restore', { ic });
     } catch (e) { alert('Could not read that file: ' + e.message); }
   };
   r.readAsText(f);
@@ -1121,13 +1157,13 @@ el('modelnote').innerHTML =
 let last=performance.now(), acc=0, tAcc=0;
 function frame(now){
   const dtReal=clamp((now-last)/1000,0,0.25); last=now;
-  if(!paused){
+  if(!paused && !NET.connected){
     acc+=dtReal*speed;
     const dt=0.05; let n=0;
     while(acc>=dt && n<Math.max(40,speed*25)){ PLANT.stepPlant(PL,dt); simT+=dt; acc-=dt; n++; }
     if(acc>1) acc=0;
-    tAcc+=dtReal; if(tAcc>0.25){ pushTrend(); tAcc=0; }
   }
+  if(!paused){ tAcc+=dtReal; if(tAcc>0.25){ pushTrend(); tAcc=0; } }
   render(now);
   requestAnimationFrame(frame);
 }
@@ -1137,6 +1173,40 @@ renderICs();
 el('loading').style.display='none';
 el('app').style.visibility='visible';
 requestAnimationFrame(frame);
+
+// ================= multiplayer: talk to the authoritative sim server =========
+// A status badge, top-right.
+const netBadge = document.createElement('div');
+netBadge.id = 'netBadge';
+netBadge.style.cssText = 'position:fixed;top:8px;right:10px;z-index:9999;'
+  + 'font:600 11px system-ui,sans-serif;letter-spacing:.09em;padding:4px 9px;'
+  + 'border-radius:4px;background:#262c22;color:#8a8f84;border:1px solid #3a4636';
+netBadge.textContent = '\u2026';
+document.body.appendChild(netBadge);
+
+// Read-only styling for observers: dim the operable controls; views/annunciator stay usable.
+const roStyle = document.createElement('style');
+roStyle.textContent = 'body[data-readonly="1"] .swp,body[data-readonly="1"] .escut,'
+  + 'body[data-readonly="1"] .bad,body[data-readonly="1"] #bRodOut,body[data-readonly="1"] #bRodIn,'
+  + 'body[data-readonly="1"] #bDilute,body[data-readonly="1"] #bBorate,body[data-readonly="1"] #bDumpMode,'
+  + 'body[data-readonly="1"] #bRHR,body[data-readonly="1"] #bSIblock,body[data-readonly="1"] #sDumpSet,'
+  + 'body[data-readonly="1"] #sPzrSet,body[data-readonly="1"] [data-su],body[data-readonly="1"] [data-go]'
+  + '{opacity:.45;pointer-events:none}';
+document.head.appendChild(roStyle);
+
+// Server state -> restore the shared plant, then let the normal render loop draw it.
+function applyServerState(ic, t){
+  try { IC.restore(PL, ic); } catch(e){ return; }
+  if (typeof t === 'number') simT = t;
+  lastHTML = 0;
+}
+function onNetStatus(s, role){
+  const connected = (s === 'connected');
+  netBadge.textContent = connected ? (role === 'operator' ? 'OPERATOR' : 'OBSERVER') : s.toUpperCase();
+  netBadge.style.color  = connected ? (role === 'operator' ? '#7fd18a' : '#e2c76a') : '#8a8f84';
+  document.body.dataset.readonly = (connected && role !== 'operator') ? '1' : '';
+}
+NET.connect(applyServerState, onNetStatus);
 </script>
 </body>
 </html>
