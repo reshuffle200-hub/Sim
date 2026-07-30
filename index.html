@@ -1153,7 +1153,7 @@ el('modelnote').innerHTML =
 let last=performance.now(), acc=0, tAcc=0;
 function frame(now){
   const dtReal=clamp((now-last)/1000,0,0.25); last=now;
-  if(!paused && !NET.connected){
+  if(!paused && !NET.usingServer){
     acc+=dtReal*speed;
     const dt=0.05; let n=0;
     while(acc>=dt && n<Math.max(40,speed*25)){ PLANT.stepPlant(PL,dt); simT+=dt; acc-=dt; n++; }
