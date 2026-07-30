@@ -68,7 +68,7 @@ function verifyTicket(token) {
 }
 
 // ---- step loop (wall-clock accumulator, like the browser) ------------
-let last = Date.now(), acc = 0;
+let last = Date.now(), acc = 0, lastTrip = PL.trip;
 setInterval(() => {
   const now = Date.now();
   const real = Math.min((now - last) / 1000, 0.25); last = now;
@@ -77,6 +77,10 @@ setInterval(() => {
   let n = 0;
   while (acc >= DT && n < 400) { PLANT.stepPlant(PL, DT); simT += DT; acc -= DT; n++; }
   if (acc > 1) acc = 0;
+  if (PL.trip !== lastTrip) {
+    lastTrip = PL.trip;
+    console.log(`[t=${simT.toFixed(0)}s] trip -> ${PL.trip}${PL.trip && PL.tripMsg ? ' (' + PL.tripMsg + ')' : ''}`);
+  }
 }, 20);
 
 // ---- broadcast -------------------------------------------------------
@@ -99,7 +103,13 @@ wss.on('connection', (ws, principal) => {
     if (ws.role !== 'operator') return;               // observers are view-only
     let m; try { m = JSON.parse(buf.toString()); } catch { return; }
     try {
-      if (m.a === 'reset')   { const ic = STD[m.load]; if (ic) { IC.restore(PL, ic); paused = false; speed = 1; } return; }
+      if (m.a === 'reset') {
+        const ic = STD[m.load];
+        console.log(`cmd reset: load=${m.load} known=${!!ic} tripBefore=${PL.trip}`);
+        if (ic) { IC.restore(PL, ic); paused = false; speed = 1;
+          console.log(`  -> restored: trip=${PL.trip} power=${PL.power.toFixed(3)}`); }
+        return;
+      }
       if (m.a === 'restore') { IC.restore(PL, m.ic); return; }
       if (m.a === 'pause')   { paused = !paused; return; }
       if (m.a === 'speed')   { speed = Math.max(1, Math.min(60, +m.v || 1)); return; }
