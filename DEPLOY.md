@@ -77,6 +77,7 @@ Then set the ticket function's environment (SWA → **Environment variables**):
 
 - `TICKET_SECRET` = the same secret from step 1
 - `SIM_WS_URL` = `wss://<SIM_APP>.azurewebsites.net/ws`
+- `OPERATOR_PASS` = the shared password operators will type to take control
 
 And lock the socket to your site's origin:
 
@@ -85,22 +86,23 @@ az webapp config appsettings set -g pwr-sim -n <SIM_APP> --settings \
   ALLOWED_ORIGIN="https://<YOUR_SWA>.azurestaticapps.net"
 ```
 
-## 3. Login provider + operator access
+## 3. Access (no accounts)
 
-- Login defaults to **GitHub** (see the redirect in `staticwebapp.config.json`
-  and the login URL in `ui/net.mjs`). Switch to Microsoft/Google by changing
-  both `/.auth/login/github` → `/.auth/login/aad` (or `google`), or wire
-  **Entra External ID** for branded email/password.
-- Make someone an operator: SWA → **Role management** → **Invite** → pick the
-  provider, enter their username/email, role = `operator`, send the link.
-  Anyone who logs in **without** that role is automatically an observer
-  (view-only). That's the whole access model.
+There's no login. Anyone who opens the site connects automatically as a
+view-only **observer**. To take control, they click the status badge
+(top-right) and type the shared **operator password** — the value you set as
+`OPERATOR_PASS` in step 2. Correct password → **OPERATOR** badge and full
+control; wrong or blank → they keep observing.
+
+Change the password anytime by editing `OPERATOR_PASS` in the Static Web App
+settings (no redeploy needed).
 
 ## 4. Try it
 
-Open the SWA URL, log in. If you invited yourself as operator you'll see an
-**OPERATOR** badge and can drive the board. Log in from another browser as a
-non-invited user → **OBSERVER** badge, controls dimmed, same live plant.
+Open the site — you should connect and see an **OBSERVER** badge with a live
+plant. Click the badge, enter the password → **OPERATOR**, and you can drive
+the board. Share the plain site link with observers; share the password only
+with people you want operating.
 
 ---
 

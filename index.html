@@ -1178,6 +1178,15 @@ netBadge.style.cssText = 'position:fixed;top:8px;right:10px;z-index:9999;'
   + 'font:600 11px system-ui,sans-serif;letter-spacing:.09em;padding:4px 9px;'
   + 'border-radius:4px;background:#262c22;color:#8a8f84;border:1px solid #3a4636';
 netBadge.textContent = '\u2026';
+netBadge.style.cursor = 'pointer';
+netBadge.title = 'Click to enter the operator password';
+netBadge.onclick = async () => {
+  if (NET.role === 'operator') return;              // already operating
+  const p = window.prompt('Operator password (leave blank to just watch):');
+  if (p === null || p === '') return;
+  const ok = await NET.authenticate(p);
+  if (!ok) window.alert('Incorrect password — still observing.');
+};
 document.body.appendChild(netBadge);
 
 // Read-only styling for observers: dim the operable controls; views/annunciator stay usable.

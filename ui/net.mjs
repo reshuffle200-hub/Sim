@@ -1,50 +1,54 @@
 // ======================================================================
-//  net.mjs — the client half of multiplayer.
+//  net.mjs — client half of multiplayer (no-accounts / shared-password).
 //
-//  The browser no longer runs the simulation.  It:
-//    1. fetches a signed ticket from /api/ticket (which knows who you are
-//       and whether you hold the `operator` role, via Static Web Apps auth),
-//    2. opens a WebSocket straight to the sim server using that ticket,
-//    3. restores the plant from every state frame the server sends,
-//    4. sends operator inputs up as `{ a, ...args }` messages.
+//  Everyone connects as an OBSERVER automatically. To take control, the
+//  user enters the shared operator password; net.authenticate() asks the
+//  /api/ticket function to mint an operator ticket and reconnects with it.
+//  The role lives inside the HMAC-signed ticket, so it can't be forged.
 //
-//  Observers get the same live state but send() is a no-op for them, so
-//  the board is fully view-only without any extra plumbing.
-//
-//  If /api/ticket isn't reachable (e.g. opening the file locally with no
-//  server), connect() quietly gives up and index.html keeps running its
-//  own local simulation — so single-player still works unchanged.
+//  If /api/ticket isn't reachable (opening the file locally), connect()
+//  quietly gives up and index.html keeps running its own local sim.
 // ======================================================================
 
-export const NET = { connected: false, role: 'observer', name: '', status: 'idle' };
+export const NET = { connected: false, role: 'observer', status: 'idle' };
 
-let ws = null, apply = null, statusCb = null, wsUrl = null, reconnectT = null;
+let ws = null, apply = null, statusCb = null, wsUrl = null, reconnectT = null, curPass = '';
 
 function setStatus(s) { NET.status = s; if (statusCb) statusCb(s, NET.role); }
+
+async function getTicket(pass) {
+  const r = await fetch('/api/ticket', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pass: pass || '' })
+  });
+  if (!r.ok) throw new Error('ticket ' + r.status);
+  return r.json();
+}
 
 export async function connect(applyState, onStatus) {
   apply = applyState; statusCb = onStatus;
   setStatus('connecting');
   let data;
-  try {
-    const r = await fetch('/api/ticket', { credentials: 'same-origin' });
-    if (r.status === 401) {
-      // not logged in — bounce through the identity provider, then come back
-      location.href = '/.auth/login/github?post_login_redirect_uri=' +
-        encodeURIComponent(location.pathname + location.search);
-      return;
-    }
-    if (!r.ok) throw new Error('ticket ' + r.status);
-    data = await r.json();
-  } catch (e) {
-    setStatus('offline');           // no server → local sim keeps running
-    return;
-  }
+  try { data = await getTicket(curPass); }
+  catch (e) { setStatus('offline'); return; }   // no server → local sim keeps running
   NET.role = data.role || 'observer';
-  NET.name = data.name || '';
   wsUrl = data.wsUrl;
   if (!wsUrl) { setStatus('offline'); return; }
   openSocket(data.ticket);
+}
+
+// Try to become operator with a password. Returns true on success.
+export async function authenticate(pass) {
+  let data;
+  try { data = await getTicket(pass); } catch (e) { return false; }
+  if (data.role !== 'operator') return false;    // wrong password
+  curPass = pass;                                 // remember it so reconnects stay operator
+  NET.role = 'operator';
+  try { if (ws) ws.close(); } catch {}
+  wsUrl = data.wsUrl;
+  openSocket(data.ticket);
+  return true;
 }
 
 function openSocket(ticket) {
@@ -73,7 +77,7 @@ function schedule() {
   reconnectT = setTimeout(() => connect(apply, statusCb), 2000);
 }
 
-/** Send an operator command. No-op (returns false) for observers or while offline. */
+/** Send an operator command. No-op for observers or while offline. */
 export function send(a, extra) {
   if (NET.role !== 'operator') return false;
   if (!ws || ws.readyState !== 1) return false;

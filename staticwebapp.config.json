@@ -1,11 +1,4 @@
 {
-  "routes": [
-    { "route": "/api/ticket", "allowedRoles": ["authenticated"] },
-    { "route": "/*", "allowedRoles": ["authenticated"] }
-  ],
-  "responseOverrides": {
-    "401": { "statusCode": 302, "redirect": "/.auth/login/github" }
-  },
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": ["/lib/*", "/ui/*", "/api/*", "*.{css,js,mjs,json,ico,png,svg,woff,woff2}"]
