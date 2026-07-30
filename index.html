@@ -1060,11 +1060,11 @@ el('nav').addEventListener('click', e => {
   [...el('nav').children].forEach(c => c.setAttribute('aria-pressed', String(c === t)));
   lastHTML = 0;
 });
-function setSpeed(v){ speed=v; autoSpeed=false;
+function setSpeed(v){ if(v!==speed) NET.send('speed',{v}); speed=v; autoSpeed=false;
   [['bS1',1],['bS10',10],['bS60',60]].forEach(([i,x])=>el(i).setAttribute('aria-pressed',String(x===v)));
   el('bSA').setAttribute('aria-pressed','false'); }
 el('bS1').onclick=()=>setSpeed(1); el('bS10').onclick=()=>setSpeed(10); el('bS60').onclick=()=>setSpeed(60);
-el('bSA').onclick=()=>{ autoSpeed=true; speed=60;
+el('bSA').onclick=()=>{ if(speed!==60) NET.send('speed',{v:60}); autoSpeed=true; speed=60;
   ['bS1','bS10','bS60'].forEach(i=>el(i).setAttribute('aria-pressed','false'));
   el('bSA').setAttribute('aria-pressed','true'); };
 el('sLoad').oninput=e=>{ PL.sec.loadSet=+e.target.value/100; el('oLoad').textContent=e.target.value+'%'; };
