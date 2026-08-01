@@ -584,6 +584,7 @@ footer{color:#2b3027;font-family:var(--cond);font-size:11.5px;letter-spacing:.11
 
 <div class="nav" id="nav">
   <button data-b="overview" aria-pressed="true">Overview</button>
+  <button data-b="mimic" aria-pressed="false">Mimic</button>
   <button data-b="reactor" aria-pressed="false">Reactor</button>
   <button data-b="startup" aria-pressed="false">Startup</button>
   <button data-b="rcs" aria-pressed="false">Reactor coolant</button>
@@ -691,6 +692,7 @@ import { BUILD } from './lib/version.js';
 import * as PLANT from './lib/plant.js';
 import * as EL from './lib/elec.js';
 import * as B from './ui/boards.js';
+import * as MIMIC from './ui/mimic.js';
 import * as IC from './lib/ic.js';
 import * as RH from './lib/rhr.js';
 import * as CW from './lib/ccw.js';
@@ -704,6 +706,7 @@ import * as AL from './ui/alarms.js';
 import * as AN from './ui/annun.js';
 import { F, clamp, el, fitCanvas, stripChart } from './ui/widgets.js';
 import * as NET from './ui/net.mjs';
+import * as ACT from './lib/actions.mjs';
 
 let PL = PLANT.makePlant({ life: 'MOL' });
 PLANT.initPlant(PL, 1.0, 900);
@@ -919,7 +922,7 @@ function renderTiles() {
 }
 
 // ---- render -------------------------------------------------------
-const BOARDS = { overview:B.overview, reactor:B.reactor, startup:B.startup, rcs:B.rcs,
+const BOARDS = { overview:B.overview, mimic:MIMIC.mimic, reactor:B.reactor, startup:B.startup, rcs:B.rcs,
                  secondary:B.secondary, safeguards:B.safeguards, cooling:B.cooling, radiation:B.radiation, rodcontrol:B.rodcontrol,
                  electrical:B.electrical };
 // One definition of the switch api, in controls.js, so the shell and the tests
@@ -1211,6 +1214,14 @@ function onNetStatus(s, role){
   netBadge.style.color  = connected ? (role === 'operator' ? '#7fd18a' : '#e2c76a') : '#8a8f84';
   document.body.dataset.readonly = (connected && role !== 'operator') ? '1' : '';
 }
+// Offline (no server): apply commands to the local plant so single-player works.
+NET.onLocal((a, extra) => {
+  if (a === 'reset') { PL = PLANT.makePlant({life:'MOL'}); PLANT.initPlant(PL,1.0,900); PL.rodAuto=true; PL.sup.poisson=false; }
+  else if (a === 'restore') { if (extra.ic) restoreIC(extra.ic); }
+  else if (a === 'pause') { paused = !paused; el('bPause').textContent = paused ? 'Run' : 'Pause'; }
+  else if (a === 'speed') { /* setSpeed already applied locally */ }
+  else ACT.apply(PL, Object.assign({ a }, extra));
+});
 NET.connect(applyServerState, onNetStatus);
 </script>
 </body>

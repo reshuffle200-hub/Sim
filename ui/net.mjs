@@ -16,7 +16,10 @@
 export const NET = { connected: false, role: 'observer', status: 'idle', usingServer: false };
 
 let ws = null, apply = null, statusCb = null, wsUrl = null;
-let reconnectT = null, curPass = '', generation = 0;
+let reconnectT = null, curPass = '', generation = 0, localHandler = null;
+
+/** Register a handler used to apply commands locally when there is no server. */
+export function onLocal(fn) { localHandler = fn; }
 
 function setStatus(s) { NET.status = s; if (statusCb) statusCb(s, NET.role); }
 
@@ -89,8 +92,9 @@ function openSocket(ticket) {
   sock.onerror = () => {};
 }
 
-/** Send an operator command. No-op for observers or while offline. */
+/** Send an operator command. Offline → apply locally; online → send (operators only). */
 export function send(a, extra) {
+  if (!NET.usingServer) { if (localHandler) localHandler(a, extra || {}); return true; }
   if (NET.role !== 'operator') return false;
   if (!ws || ws.readyState !== 1) return false;
   ws.send(JSON.stringify(Object.assign({ a }, extra || {})));

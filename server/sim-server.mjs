@@ -39,6 +39,7 @@ if (!SECRET) { console.error('FATAL: TICKET_SECRET is not set'); process.exit(1)
 const PL = PLANT.makePlant({ life: 'MOL' });
 PLANT.initPlant(PL, START_LOAD, 900);
 PL.rodAuto = true;
+PL.sup.poisson = false;   // deterministic: no random source-range detector noise
 let simT = 0, speed = 1, paused = false;
 
 // Prebuild the standard initial conditions ONCE at boot, so "reset" is an
@@ -49,6 +50,7 @@ for (const [label, load] of [['100', 1.0], ['70', 0.7], ['40', 0.4]]) {
   const t = PLANT.makePlant({ life: 'MOL' });
   PLANT.initPlant(t, load, 900);
   t.rodAuto = true;
+  t.sup.poisson = false;
   STD[label] = IC.snapshot(t);
 }
 console.log('standard ICs ready:', Object.keys(STD).join(', '));
@@ -79,7 +81,13 @@ setInterval(() => {
   if (acc > 1) acc = 0;
   if (PL.trip !== lastTrip) {
     lastTrip = PL.trip;
-    console.log(`[t=${simT.toFixed(0)}s] trip -> ${PL.trip}${PL.trip && PL.tripMsg ? ' (' + PL.tripMsg + ')' : ''}`);
+    let extra = '';
+    if (PL.trip) {
+      const E = PL.E, S = PL.S;
+      extra = ` | rcpOn=${JSON.stringify(E.rcpOn)} rcpV=${JSON.stringify((E.rcpV || []).map(v => +Number(v).toFixed(2)))}`
+            + ` grid=${E.gridAvail} genBkr=${E.genBkr} W=${S.W != null ? Number(S.W).toFixed(2) : '?'}`;
+    }
+    console.log(`[t=${simT.toFixed(0)}s] trip -> ${PL.trip}${PL.trip && PL.tripMsg ? ' (' + PL.tripMsg + ')' : ''}${extra}`);
   }
 }, 20);
 
@@ -106,11 +114,11 @@ wss.on('connection', (ws, principal) => {
       if (m.a === 'reset') {
         const ic = STD[m.load];
         console.log(`cmd reset: load=${m.load} known=${!!ic} tripBefore=${PL.trip}`);
-        if (ic) { IC.restore(PL, ic); paused = false; speed = 1;
+        if (ic) { IC.restore(PL, ic); PL.sup.poisson = false; paused = false; speed = 1;
           console.log(`  -> restored: trip=${PL.trip} power=${PL.power.toFixed(3)}`); }
         return;
       }
-      if (m.a === 'restore') { IC.restore(PL, m.ic); return; }
+      if (m.a === 'restore') { IC.restore(PL, m.ic); PL.sup.poisson = false; return; }
       if (m.a === 'pause')   { paused = !paused; return; }
       if (m.a === 'speed')   { speed = Math.max(1, Math.min(60, +m.v || 1)); return; }
       applyAction(PL, m);
