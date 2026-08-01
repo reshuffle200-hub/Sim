@@ -678,6 +678,68 @@ export const SWITCHES = [
   }))
 ];
 
+// ---------------------------------------------------------------------
+//  Additional control-board handswitches (lineup / isolation / breaker)
+//  that bring the boards up to full-plant density. Most hold position in
+//  PL.hs (a handswitch state bag); a few drive real modeled effects.
+//  Placed only on boards that render a switch bank.
+// ---------------------------------------------------------------------
+const _hs = (board, section, label, pos, def = 0) => ({
+  board, section, label, pos,
+  read: PL => { const k = section + '\u00b7' + label; return (PL.hs && k in PL.hs) ? PL.hs[k] : def; },
+  write: (PL, v) => { (PL.hs || (PL.hs = {}))[section + '\u00b7' + label] = v; },
+});
+SWITCHES.push(
+  // ---- safeguards: containment isolation (Phase A drives the real flag) ----
+  { board:'safeguards', section:'CONTAINMENT ISOLATION', label:'PHASE A', pos:['NORMAL','ISOLATE'],
+    read: PL => PL.cnmt.isolated ? 1 : 0, write:(PL,v)=>{ PL.cnmt.isolated = v === 1; } },
+  _hs('safeguards','CONTAINMENT ISOLATION','PHASE B',['NORMAL','ISOLATE']),
+  _hs('safeguards','CONTAINMENT ISOLATION','PURGE ISOL',['OPEN','CLOSE'],1),
+  _hs('safeguards','CONTAINMENT ISOLATION','MINI-PURGE',['CLOSE','OPEN']),
+  _hs('safeguards','HYDROGEN CONTROL','H2 RECOMB A',['OFF','ON']),
+  _hs('safeguards','HYDROGEN CONTROL','H2 RECOMB B',['OFF','ON']),
+  _hs('safeguards','HYDROGEN CONTROL','H2 ANALYZER',['STBY','SAMPLE'],1),
+  _hs('safeguards','ECCS ALIGNMENT','RWST TO SI',['CLOSE','OPEN'],1),
+  _hs('safeguards','ECCS ALIGNMENT','RECIRC SUMP A',['CLOSE','OPEN']),
+  _hs('safeguards','ECCS ALIGNMENT','RECIRC SUMP B',['CLOSE','OPEN']),
+  _hs('safeguards','ECCS ALIGNMENT','BIT INLET',['CLOSE','OPEN'],1),
+  _hs('safeguards','ECCS ALIGNMENT','BIT OUTLET',['CLOSE','OPEN'],1),
+  _hs('safeguards','ECCS ALIGNMENT','RHR HX BYPASS',['OPEN','CLOSE'],1),
+  _hs('safeguards','ECCS ALIGNMENT','HL RECIRC',['CLOSE','OPEN']),
+  _hs('safeguards','SUPPORT SYSTEMS','CCW SURGE MKUP',['AUTO','MANUAL']),
+  _hs('safeguards','SUPPORT SYSTEMS','CCW TO RHR',['CLOSE','OPEN'],1),
+  _hs('safeguards','SUPPORT SYSTEMS','SW STRAINER A',['AUTO','BACKWASH']),
+  _hs('safeguards','SUPPORT SYSTEMS','SW STRAINER B',['AUTO','BACKWASH']),
+  _hs('safeguards','SUPPORT SYSTEMS','INST AIR CMPR A',['STOP','START'],1),
+  _hs('safeguards','SUPPORT SYSTEMS','INST AIR CMPR B',['STOP','START']),
+
+  // ---- secondary: main steam / feedwater / condensate ----
+  ...['A','B','C'].map(x => _hs('secondary','MAIN STEAM','MSIV BYP '+x,['CLOSE','OPEN'])),
+  ...['A','B','C'].map(x => _hs('secondary','MAIN STEAM','SG ADV '+x,['AUTO','MANUAL'])),
+  _hs('secondary','MAIN STEAM','MS DRAINS',['DRAIN','ISOL'],1),
+  ...['A','B','C'].map(x => _hs('secondary','FEEDWATER ALIGN','FW ISOL '+x,['OPEN','CLOSE'])),
+  ...['A','B','C'].map(x => _hs('secondary','FEEDWATER ALIGN','FW BYP REG '+x,['AUTO','MANUAL'])),
+  ...['1','2','3'].map(x => _hs('secondary','CONDENSATE','COND PUMP '+x,['STOP','START'], x==='3'?0:1)),
+  ...['1','2'].map(x => _hs('secondary','CONDENSATE','HTR DRAIN PMP '+x,['STOP','START'],1)),
+  _hs('secondary','CONDENSATE','COND POLISHER',['BYPASS','SERVICE'],1),
+
+  // ---- rcs: CVCS lineup ----
+  _hs('rcs','CVCS','BORIC ACID PMP A',['STOP','START'],1),
+  _hs('rcs','CVCS','BORIC ACID PMP B',['STOP','START']),
+  _hs('rcs','CVCS','VCT MAKEUP',['AUTO','MANUAL']),
+  _hs('rcs','CVCS','VCT DIVERT',['VCT','HOLDUP']),
+  _hs('rcs','CVCS','EXCESS LETDOWN',['ISOL','OPEN']),
+  _hs('rcs','CVCS','RCP SEAL RETURN',['OPEN','ISOL']),
+  _hs('rcs','CVCS','MAKEUP MODE',['AUTO','BORATE','DILUTE','MANUAL']),
+
+  // ---- electrical distribution ----
+  ...['1A','1B','2A','2B'].map(x => _hs('electrical','4KV BUSES','BUS '+x+' FEED',['OPEN','CLOSE'],1)),
+  ...['A','B'].map(x => _hs('electrical','480V LOAD CTRS','480V LC '+x,['OPEN','CLOSE'],1)),
+  ...['A','B'].map(x => _hs('electrical','EMERGENCY DIESELS','DG '+x+' OUTPUT BKR',['OPEN','CLOSE'])),
+  ...['1','2'].map(x => _hs('electrical','DC / VITAL','BATT CHARGER '+x,['OFF','ON'],1)),
+  ...['1','2','3','4'].map(x => _hs('electrical','DC / VITAL','INVERTER '+x,['OFF','ON'],1)),
+);
+
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 /** One switch: legend plate, indicating lamps, handle on its escutcheon. */

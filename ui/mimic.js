@@ -159,13 +159,15 @@ export function mimic(PL) {
 
   // ================= CONDENSER -> FEEDWATER (secondary loop close) =================
   const condY = top + 404;
-  g += pipe([[688, turbY+40],[688, condY]], C.steam, 4);           // turbine exhaust down
+  g += pipe([[688, turbY+40],[688, condY]], C.steam, 4);            // turbine exhaust down into condenser
   const condInner = box(642, condY, 112, 54, { r:6 })
     + T(698, condY+18, 'CONDENSER', { anchor:'middle', size:11, fill:C.dim, weight:600 })
     + T(698, condY+38, f(cd.inHg,1)+' inHg \u00b7 hw '+f(cd.hotwellPct,0)+'%', { anchor:'middle', size:10, fill:C.steam });
   g += tip(`Condenser \u00b7 ${f(cd.inHg,1)} inHg abs \u00b7 hotwell ${f(cd.hotwellPct,0)}% \u00b7 duty ${f(cd.dutyMW,0)} MW \u00b7 ${f(cd.TcondF,0)}\u00b0F`, condInner);
-  g += pipe([[698, condY+54],[698, condY+80]], C.cold, 4);         // condensate down
-  const fwY = condY + 92, mfp = sec.mfpOn || [];
+  const fwY = condY + 90, mfp = sec.mfpOn || [];
+  // condenser drops onto a feed header; both pumps sit ON the header; header runs left to a riser
+  g += pipe([[698, condY+54],[698, fwY]], C.cold, 3);               // condenser -> header
+  g += pipe([[600, fwY],[750, fwY]], C.cold, 3);                    // feed header through both pumps
   [672, 724].forEach((fx, pi) => {
     const on = mfp[pi];
     g += tip(`Main feedwater pump ${pi+1} \u00b7 ${on?'RUNNING':'STOPPED'}`,
@@ -173,10 +175,10 @@ export function mimic(PL) {
       + T(fx, fwY+4, 'F', { anchor:'middle', size:10, fill:'#12160f', weight:700 }));
   });
   g += T(698, fwY+26, 'feed '+f(sec.TfwF,0)+'\u00b0F \u00b7 '+f(sec.WfwTotal/1e6,1)+'e6 lb/hr', { anchor:'middle', size:10, fill:C.dim });
-  // feedwater return toward the steam generators (dashed, below the steam header)
-  g += `<polyline points="661,${fwY} 590,${fwY} 590,${top+470} 512,${top+470}" fill="none" stroke="${C.cold}" stroke-width="3" stroke-dasharray="6 4"/>`;
-  g += `<polygon points="520,${top+466} 511,${top+470} 520,${top+474}" fill="${C.cold}"/>`;
-  g += T(596, fwY-6, 'feedwater', { anchor:'start', size:9, fill:C.cold });
+  // riser up (right of steam header) then into the steam generators, below the steam header
+  const nozY = top + 470;                                          // enters SG3 right side, clear of steam header
+  g += pipe([[600, fwY],[600, nozY],[sgx+sgw, nozY]], C.cold, 3);
+  g += T(606, nozY-6, 'feedwater \u2192 SGs', { anchor:'start', size:9, fill:C.cold });
   // breaker + grid
   const gb = E.genBkr, grid = E.gridAvail;
   g += pipe([[842, turbY],[892, turbY]], gb?C.on:C.off, 4);
