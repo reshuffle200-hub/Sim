@@ -696,7 +696,7 @@ function switchHTML(PL, sw, idx) {
     `<button class="swp${i === cur ? ' sel' : ''}" data-sw="${idx}" data-pos="${i}"
        aria-pressed="${i === cur}">${esc(label)}</button>`).join('');
 
-  return `<div class="sw${kind}">
+  return `<div class="sw${kind}" title="${esc(sw.label)}: ${esc(sw.pos[cur])}${note ? ' — ' + esc(note) : ''}">
     <div class="swlabel">${esc(sw.label)}</div>
     <div class="swhead">
       <span class="lamp red${lamp === 'red' ? ' lit' : ''}" title="running / open"></span>
