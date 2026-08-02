@@ -1,6 +1,6 @@
 {
   "name": "pwr-sim-server",
-  "version": "0.36.0",
+  "version": "0.37.2",
   "private": true,
   "type": "module",
   "engines": { "node": ">=20" },

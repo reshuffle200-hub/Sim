@@ -1342,7 +1342,7 @@ el('cbFit').onclick = cbFit;
 el('cbFitH').onclick = cbFitH;
 el('cbZi').onclick = () => { cbScale = Math.min(3, cbScale * 1.2); cbApply(); };
 el('cbZo').onclick = () => { cbScale = Math.max(0.2, cbScale / 1.2); cbApply(); };
-el('cbView').addEventListener('mousedown', e => { cbDrag = { x: e.clientX - cbTx, y: e.clientY - cbTy }; el('cbView').classList.add('drag'); });
+el('cbView').addEventListener('mousedown', e => { if (e.target.closest('[data-sw]')) return; cbDrag = { x: e.clientX - cbTx, y: e.clientY - cbTy }; el('cbView').classList.add('drag'); });
 window.addEventListener('mousemove', e => { if (!cbDrag) return; cbTx = e.clientX - cbDrag.x; cbTy = e.clientY - cbDrag.y; cbApply(); });
 window.addEventListener('mouseup', () => { cbDrag = null; el('cbView').classList.remove('drag'); });
 el('cbView').addEventListener('wheel', e => {

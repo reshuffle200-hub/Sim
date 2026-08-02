@@ -144,3 +144,20 @@ just the UI. Tickets are HMAC-signed, expire in 2 minutes, and only get a
 client connected once; the role is inside the signed payload and can't be
 tampered with. The server rejects any socket without a valid ticket (and, if
 `ALLOWED_ORIGIN` is set, from the wrong origin).
+
+---
+
+## Offline build → GitHub Pages (auto cache-busting)
+
+The single-player/offline version can be served from GitHub Pages. The
+workflow `.github/workflows/github-pages.yml` runs `tools/stamp.mjs` on every
+push, which appends `?v=<BUILD>` to every module import so browsers always load
+the current version (no more stale-cache "hard refresh" needed), then publishes
+the stamped `dist/` folder.
+
+One-time setup: GitHub repo → **Settings → Pages → Build and deployment →
+Source: GitHub Actions**. After that, every push to `main` redeploys the
+offline site at your Pages URL automatically.
+
+To bump the cache version, just raise `BUILD` in `lib/version.js` (already done
+each release) — the stamp follows it.
